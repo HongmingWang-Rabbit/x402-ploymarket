@@ -32,6 +32,7 @@ pub mod math;       // 数学库（定点数、LMSR）
 pub mod state;      // 状态结构定义
 pub mod types;      // 类型定义（枚举等）✅ v1.6.0: 替代魔法数字
 pub mod utils;      // 工具函数
+pub mod insurance;  // ✅ v3.2.0: 保险池资金隔离验证模块
 
 // 导入指令模块
 #[allow(ambiguous_glob_imports)]
@@ -48,7 +49,7 @@ use state::config::*;
 use state::market::*;
 
 // 声明程序ID
-declare_id!("GRqkunbVQPKsauyZrtVVaJ726JMu5tcuzy5p8nT3EF8N");
+declare_id!("78LNFkZn5wjKjscWWDXe7ChmmZ9Fu1g6rhGfCJPy7BmR");
 
 /// 预测市场程序主模块
 #[program]

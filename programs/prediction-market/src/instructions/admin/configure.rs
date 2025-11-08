@@ -247,6 +247,68 @@ impl<'info> Configure<'info> {
             msg!("ℹ️ Insurance pool disabled");
         }
 
+        // ✅ v3.2.0: 校验保险池配置参数（修复 Medium 问题）
+        //
+        // 🎯 核心风险：保险池参数配置不合理导致机制失效
+        //
+        // 📐 参数范围：
+        //    - lp_insurance_allocation_bps: 0-10000 (0%-100%)
+        //    - insurance_loss_threshold_bps: 0-10000 (0%-100%)
+        //    - insurance_max_compensation_bps: 0-10000 (0%-100%)
+        //
+        // 🔒 为什么需要校验？
+        //    1. 防止参数超过 100% 导致溢出
+        //    2. 确保保险池机制可持续运作
+        //    3. 避免误配置导致保险池快速耗尽
+        use crate::constants::MAX_INSURANCE_CONFIG_BPS;
+
+        require!(
+            new_config.lp_insurance_allocation_bps <= MAX_INSURANCE_CONFIG_BPS,
+            PredictionMarketError::InvalidInsuranceConfig
+        );
+        require!(
+            new_config.insurance_loss_threshold_bps <= MAX_INSURANCE_CONFIG_BPS,
+            PredictionMarketError::InvalidInsuranceConfig
+        );
+        require!(
+            new_config.insurance_max_compensation_bps <= MAX_INSURANCE_CONFIG_BPS,
+            PredictionMarketError::InvalidInsuranceConfig
+        );
+
+        // ✅ v3.2.0: 校验保险池参数的合理性
+        //
+        // 🎯 合理性检查：
+        //    1. 分配比例建议 10%-30%（过高会减少团队收入）
+        //    2. 损失阈值建议 5%-20%（过低会导致保险池快速耗尽）
+        //    3. 最大补偿建议 30%-70%（过高会导致保险池不可持续）
+        //
+        // 📝 警告而非错误：允许管理员自行决定，但给出警告
+        if new_config.lp_insurance_allocation_bps > 3000 {
+            msg!(
+                "⚠️ Warning: Insurance allocation {}bps > 30%, may reduce team revenue",
+                new_config.lp_insurance_allocation_bps
+            );
+        }
+        if new_config.insurance_loss_threshold_bps < 500 {
+            msg!(
+                "⚠️ Warning: Loss threshold {}bps < 5%, insurance pool may deplete quickly",
+                new_config.insurance_loss_threshold_bps
+            );
+        }
+        if new_config.insurance_max_compensation_bps > 7000 {
+            msg!(
+                "⚠️ Warning: Max compensation {}bps > 70%, insurance pool may not be sustainable",
+                new_config.insurance_max_compensation_bps
+            );
+        }
+
+        msg!(
+            "✅ Insurance config validated - Allocation: {}bps, Threshold: {}bps, Max compensation: {}bps",
+            new_config.lp_insurance_allocation_bps,
+            new_config.insurance_loss_threshold_bps,
+            new_config.insurance_max_compensation_bps
+        );
+
         // 计算空间与租金
         let serialized_config =
             [&Config::DISCRIMINATOR, new_config.try_to_vec()?.as_slice()].concat();
