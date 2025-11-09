@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { useWallet } from "@/app/hooks/wallet";
 import { BlockchainType } from "@/app/utils/wallet";
-import { WalletButton, ChainSwitcher } from "@/components/wallet";
 import { verifyPayment } from "../actions";
 import { PaymentRequirements, PaymentPayload } from "x402/types";
 import { preparePaymentHeader } from "x402/client";
@@ -26,17 +26,10 @@ interface PaymentConfig {
   recipient: string;
 }
 
-const PAYMENT_CONFIGS: Record<string, PaymentConfig> = {
-  cheap: {
-    amount: "0.01",
-    description: "Access to cheap content",
-    recipient: "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
-  },
-  expensive: {
-    amount: "0.25",
-    description: "Access to expensive content",
-    recipient: "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
-  },
+const DEFAULT_CONFIG: PaymentConfig = {
+  amount: "0.01",
+  description: "Custom payment",
+  recipient: "0x209693Bc6afc0C5328bA36FaF03C514EF312287C",
 };
 
 /**
@@ -44,9 +37,13 @@ const PAYMENT_CONFIGS: Record<string, PaymentConfig> = {
  */
 function EVMPaymentForm({
   paymentRequirements,
+  amount,
+  description,
   onSuccess,
 }: {
   paymentRequirements: PaymentRequirements;
+  amount: string;
+  description: string;
   onSuccess: () => void;
 }) {
   const { evmWallet } = useWallet();
@@ -108,8 +105,8 @@ function EVMPaymentForm({
       // Encode payment
       const payment: string = exact.evm.encodePayment(paymentPayload);
 
-      // Verify payment on server
-      const result = await verifyPayment(payment);
+      // Verify payment on server with dynamic amount and description
+      const result = await verifyPayment(payment, amount, description);
 
       if (result.startsWith("Error")) {
         throw new Error(result);
@@ -132,7 +129,7 @@ function EVMPaymentForm({
         <div className="text-sm space-y-1">
           <p>
             <span className="text-gray-600 dark:text-gray-400">Amount:</span>{" "}
-            {paymentRequirements.maxAmountRequired} USDC
+            ${amount} USD
           </p>
           <p>
             <span className="text-gray-600 dark:text-gray-400">To:</span>{" "}
@@ -146,7 +143,7 @@ function EVMPaymentForm({
             <span className="text-gray-600 dark:text-gray-400">
               Description:
             </span>{" "}
-            {paymentRequirements.description}
+            {description}
           </p>
         </div>
       </div>
@@ -176,10 +173,14 @@ function EVMPaymentForm({
  * Solana Payment Form Component
  */
 function SolanaPaymentForm({
-  config,
+  amount,
+  description,
+  recipient,
   onSuccess,
 }: {
-  config: PaymentConfig;
+  amount: string;
+  description: string;
+  recipient: string;
   onSuccess: () => void;
 }) {
   const { solanaWallet } = useWallet();
@@ -197,7 +198,7 @@ function SolanaPaymentForm({
       setError("");
 
       // Convert amount to lamports
-      const amountInSol = parseFloat(config.amount);
+      const amountInSol = parseFloat(amount);
       const lamports = Math.floor(amountInSol * LAMPORTS_PER_SOL);
 
       // For demo purposes, we'll use a fixed recipient address
@@ -224,6 +225,7 @@ function SolanaPaymentForm({
       const signature = await solanaWallet.sendTransaction(transaction);
 
       console.log("Solana payment signature:", signature);
+      console.log("Payment good - Amount:", amount, "SOL, Description:", description);
 
       // In a real app, you'd verify this payment on your backend
       // For now, we'll just show success
@@ -243,11 +245,11 @@ function SolanaPaymentForm({
         <div className="text-sm space-y-1">
           <p>
             <span className="text-gray-600 dark:text-gray-400">Amount:</span>{" "}
-            {config.amount} SOL
+            {amount} SOL
           </p>
           <p>
             <span className="text-gray-600 dark:text-gray-400">To:</span>{" "}
-            {config.recipient.slice(0, 10)}...
+            {recipient.slice(0, 10)}...
           </p>
           <p>
             <span className="text-gray-600 dark:text-gray-400">Network:</span>{" "}
@@ -257,7 +259,7 @@ function SolanaPaymentForm({
             <span className="text-gray-600 dark:text-gray-400">
               Description:
             </span>{" "}
-            {config.description}
+            {description}
           </p>
         </div>
       </div>
@@ -287,21 +289,26 @@ function SolanaPaymentForm({
  * Main Paywall Component
  */
 export default function Paywall() {
-  const { chainType, isConnected } = useWallet();
+  const { chainType, isConnected, address } = useWallet();
   const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const searchParams = useSearchParams();
 
-  // Get payment config (you can make this dynamic based on URL params)
-  const config = PAYMENT_CONFIGS.cheap;
+  // Get dynamic amount and description from URL params
+  const amount = searchParams.get("amount") || DEFAULT_CONFIG.amount;
+  const description = searchParams.get("description") || DEFAULT_CONFIG.description;
 
-  // EVM payment requirements for x402
+  // Convert amount to USDC with 6 decimals (for EVM)
+  const amountInUSDC = Math.floor(parseFloat(amount) * 1_000_000).toString();
+
+  // EVM payment requirements for x402 with dynamic amount
   const evmPaymentRequirements: PaymentRequirements = {
     scheme: "exact",
     network: "base-sepolia",
-    maxAmountRequired: "10000", // USDC has 6 decimals, so this is 0.01 USDC
+    maxAmountRequired: amountInUSDC, // Dynamic amount in USDC (6 decimals)
     resource: "https://example.com",
-    description: config.description,
+    description: description,
     mimeType: "text/html",
-    payTo: config.recipient,
+    payTo: DEFAULT_CONFIG.recipient,
     maxTimeoutSeconds: 60,
     asset: "0x036CbD53842c5426634e7929541eC2318f3dCF7e", // USDC on Base Sepolia
     outputSchema: undefined,
@@ -315,7 +322,7 @@ export default function Paywall() {
     setPaymentSuccess(true);
     // Redirect after short delay
     setTimeout(() => {
-      window.location.href = "/content/cheap";
+      window.location.href = "/";
     }, 2000);
   };
 
@@ -340,21 +347,34 @@ export default function Paywall() {
         <div className="text-center mb-6">
           <h1 className="text-3xl font-bold mb-2">Payment Required</h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Choose your preferred payment method
+            Connect your wallet using the header and proceed with payment
           </p>
         </div>
 
-        {/* Chain Switcher */}
-        <div className="mb-6">
-          <label className="block text-sm font-medium mb-2">
-            Select Blockchain
-          </label>
-          <ChainSwitcher className="w-full" />
-        </div>
-
-        {/* Wallet Connection */}
-        <div className="mb-6">
-          <WalletButton className="w-full" />
+        {/* Current Chain Display */}
+        <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+              Selected Chain:
+            </span>
+            <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
+              chainType === BlockchainType.EVM
+                ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                : 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
+            }`}>
+              {chainType === BlockchainType.EVM ? 'EVM' : 'Solana'}
+            </span>
+          </div>
+          {isConnected && (
+            <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                Connected: {chainType === BlockchainType.EVM
+                  ? `${address?.slice(0, 6)}...${address?.slice(-4)}`
+                  : `${address?.slice(0, 6)}...${address?.slice(-4)}`
+                }
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Payment Form */}
@@ -363,11 +383,15 @@ export default function Paywall() {
             {chainType === BlockchainType.EVM ? (
               <EVMPaymentForm
                 paymentRequirements={evmPaymentRequirements}
+                amount={amount}
+                description={description}
                 onSuccess={handlePaymentSuccess}
               />
             ) : (
               <SolanaPaymentForm
-                config={config}
+                amount={amount}
+                description={description}
+                recipient={DEFAULT_CONFIG.recipient}
                 onSuccess={handlePaymentSuccess}
               />
             )}

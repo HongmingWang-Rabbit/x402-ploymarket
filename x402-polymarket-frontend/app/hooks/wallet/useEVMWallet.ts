@@ -56,16 +56,18 @@ export function useEVMWallet(): EVMWallet {
   }, [isConnected, isConnecting]);
 
   /**
-   * Connect to wallet
+   * Connect to wallet using WalletConnect
+   * WalletConnect modal will show 400+ wallet options
    */
   const handleConnect = useCallback(async () => {
     try {
       setConnectionState(WalletConnectionState.CONNECTING);
 
-      // Use the first available connector (usually MetaMask or injected wallet)
+      // Use WalletConnect connector (should be the only one)
       const connector = connectors[0];
+
       if (!connector) {
-        throw new WalletConnectionError('No wallet connector available');
+        throw new WalletConnectionError('WalletConnect not configured. Please add NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID to .env.local');
       }
 
       await connect({ connector });

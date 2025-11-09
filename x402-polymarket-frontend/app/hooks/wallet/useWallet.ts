@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { useEVMWallet } from './useEVMWallet';
+import { useCallback } from 'react';
 import { useSolanaWallet } from './useSolanaWallet';
 import { BlockchainType, Wallet, EVMWallet, SolanaWallet } from '@/app/utils/wallet';
+import { useAccount } from 'wagmi';
+import { useChainType } from '@/app/providers';
 
 /**
  * Options for the unified wallet hook
@@ -59,11 +60,11 @@ export interface UseWalletReturn {
  * ```
  */
 export function useWallet(options?: UseWalletOptions): UseWalletReturn {
-  const { defaultChainType = BlockchainType.EVM } = options || {};
+  // Use shared chainType from context
+  const { chainType, setChainType } = useChainType();
 
-  const [chainType, setChainType] = useState<BlockchainType>(defaultChainType);
-
-  const evmWallet = useEVMWallet();
+  // EVM wallet via wagmi (works with Reown AppKit)
+  const { address: evmAddress, isConnected: evmConnected } = useAccount();
   const solanaWallet = useSolanaWallet();
 
   /**
@@ -71,23 +72,33 @@ export function useWallet(options?: UseWalletOptions): UseWalletReturn {
    */
   const switchChainType = useCallback((type: BlockchainType) => {
     setChainType(type);
-  }, []);
+  }, [setChainType]);
 
   /**
-   * Get the active wallet based on current chain type
+   * Check if current chain is connected
    */
-  const activeWallet: Wallet = chainType === BlockchainType.EVM ? evmWallet : solanaWallet;
-
-  /**
-   * Check if any wallet is connected
-   */
-  const isConnected = evmWallet.connectionState === 'connected' ||
-                      solanaWallet.connectionState === 'connected';
+  const isConnected = chainType === BlockchainType.EVM
+    ? evmConnected
+    : solanaWallet.connectionState === 'connected';
 
   /**
    * Get active address based on chain type
    */
-  const address = activeWallet.address;
+  const address = chainType === BlockchainType.EVM
+    ? evmAddress || null
+    : solanaWallet.address;
+
+  // Create a minimal EVM wallet object for compatibility
+  const evmWallet: EVMWallet = {
+    chainType: BlockchainType.EVM,
+    address: evmAddress || null,
+    connectionState: evmConnected ? 'connected' : 'disconnected',
+    // Other methods are handled by Reown AppKit directly
+  } as EVMWallet;
+
+  const activeWallet: Wallet = chainType === BlockchainType.EVM
+    ? evmWallet
+    : solanaWallet;
 
   return {
     chainType,

@@ -37,10 +37,19 @@ const x402PaymentMiddleware = paymentMiddleware(
 );
 
 export const middleware = (req: NextRequest) => {
+  // Don't check payment on homepage or paywall page itself
+  const isPublicPath = req.nextUrl.pathname === '/' ||
+                       req.nextUrl.pathname === '/paywall' ||
+                       req.nextUrl.pathname.startsWith('/api/');
+
+  if (isPublicPath) {
+    return NextResponse.next();
+  }
+
   const paymentHeader = req.cookies.get("payment-session");
 
   if (!paymentHeader) {
-    return NextResponse.rewrite(new URL("/paywall", req.url));
+    return NextResponse.redirect(new URL("/paywall", req.url));
   }
 
   const delegate = x402PaymentMiddleware as unknown as (
@@ -58,8 +67,8 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (metadata files)
+     * - logos (logo files)
      */
-    "/((?!_next/static|_next/image|favicon.ico).*)",
-    "/", // Include the root path explicitly
+    "/((?!_next/static|_next/image|favicon.ico|logos).*)",
   ],
 };

@@ -29,9 +29,17 @@ export function useSolanaWallet(): SolanaWallet {
     signTransaction: solanaSignTransaction,
     sendTransaction: solanaSendTransaction,
     wallet,
+    select,
   } = useSolanaWalletAdapter();
 
   const { connection } = useConnection();
+
+  // Log wallet changes
+  useEffect(() => {
+    if (wallet) {
+      console.log('👛 Wallet selected:', wallet.adapter.name);
+    }
+  }, [wallet]);
 
   const [connectionState, setConnectionState] = useState<WalletConnectionState>(
     connected
@@ -42,13 +50,19 @@ export function useSolanaWallet(): SolanaWallet {
   // Update connection state based on Solana wallet state
   useEffect(() => {
     if (connecting) {
+      console.log('🔄 Solana wallet connecting...');
       setConnectionState(WalletConnectionState.CONNECTING);
     } else if (connected) {
+      console.log('✅ Solana wallet connected!', {
+        publicKey: publicKey?.toBase58(),
+        wallet: wallet?.adapter.name,
+      });
       setConnectionState(WalletConnectionState.CONNECTED);
     } else {
+      console.log('🔌 Solana wallet disconnected');
       setConnectionState(WalletConnectionState.DISCONNECTED);
     }
-  }, [connected, connecting]);
+  }, [connected, connecting, publicKey, wallet]);
 
   /**
    * Connect to Solana wallet
