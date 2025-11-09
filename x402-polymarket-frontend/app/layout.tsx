@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
+import { MultiChainWalletProvider } from '@/app/providers'
+import { WalletAdapterNetwork } from '@solana/wallet-adapter-base'
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -24,7 +26,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>{children}</body>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        <MultiChainWalletProvider
+          walletConnectProjectId={process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID}
+          solanaNetwork={WalletAdapterNetwork.Devnet}
+          solanaAutoConnect={false}
+        >
+          {children}
+        </MultiChainWalletProvider>
+      </body>
     </html>
   )
 }
