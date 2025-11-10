@@ -8,7 +8,7 @@ import { PredictionMarketClient } from './src/PredictionMarketClient';
 
 // 测试配置
 const RPC_URL = 'https://api.devnet.solana.com';
-const PROGRAM_ID = 'EgEc7fuse6eQ3UwqeWGFncDtbTwozWCy4piydbeRaNrU';
+const PROGRAM_ID = '78LNFkZn5wjKjscWWDXe7ChmmZ9Fu1g6rhGfCJPy7BmR';
 
 async function testInitialization() {
   try {

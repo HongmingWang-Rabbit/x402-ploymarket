@@ -1,0 +1,124 @@
+    Finished `release` profile [optimized] target(s) in 0.35s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.25s
+     Running unittests src/lib.rs (/Volumes/PSSD/Code/Solana/x402-ploymarket/target/debug/deps/prediction_market-f827dcfe162f481a)
+
+Found a 'test' script in the Anchor.toml. Running it as a test suite!
+
+Running test suite: "/Volumes/PSSD/Code/Solana/x402-ploymarket/Anchor.toml"
+
+yarn run v1.22.22
+$ /Volumes/PSSD/Code/Solana/x402-ploymarket/node_modules/.bin/ts-mocha -p ./tsconfig.json -t 1000000 'tests/**/*.ts'
+Program ID: 78LNFkZn5wjKjscWWDXe7ChmmZ9Fu1g6rhGfCJPy7BmR
+Provider wallet: 2e53q6VXFs7yTnmP9NpohGYA4x3u7RdhoQksv7mdSrLa
+(node:41272) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Volumes/PSSD/Code/Solana/x402-ploymarket/tests/prediction-market.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Volumes/PSSD/Code/Solana/x402-ploymarket/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+  prediction-market
+
+🚀 开始测试设置...
+Admin 公钥: 2e53q6VXFs7yTnmP9NpohGYA4x3u7RdhoQksv7mdSrLa
+Config PDA: G2GawQFgqmFVWekqSwKCmfMkHhDscHkQ818e5JRNosqd
+Global Vault PDA: EKULh13ghz1RffG9oxGsoPH9LzcPcpmKLEQ9kRnGKZiB
+Admin 余额: 500000000 SOL
+✅ 测试设置完成
+
+✅ 程序已成功部署
+    ✔ ✅ 程序已部署
+✅ PDA 计算正确
+    ✔ ✅ PDA 计算正确
+ℹ️  Config 账户尚未初始化（这是正常的）
+    ✔ ✅ 可以查询程序账户
+✅ IDL 包含 33 个指令
+
+📋 可用指令:
+   1. acceptAuthority
+   2. addLiquidity
+   3. addToWhitelist
+   4. claimFeesPreview
+   5. claimLpFees
+   6. claimRewards
+   7. claimRewardsPreview
+   8. configure
+   9. configureMarketFees
+   10. createMarket
+   11. emergencyPause
+   12. emergencyUnpause
+   13. ensureTeamUsdcAta
+   14. mintCompleteSet
+   15. mintNoToken
+   16. nominateAuthority
+   17. pause
+   18. pauseMarket
+   19. reclaimDust
+   20. redeemCompleteSet
+   21. removeFromWhitelist
+   22. resetCircuitBreaker
+   23. resolution
+   24. seedPool
+   25. sellPreview
+   26. setMintAuthority
+   27. settlePool
+   28. swap
+   29. unpause
+   30. unpauseMarket
+   31. updateMarketName
+   32. withdrawLiquidity
+   33. withdrawPreview
+    ✔ ✅ 程序 IDL 加载成功
+
+🔒 验证安全修复:
+   ✅ configure
+   ✅ createMarket
+   ✅ swap
+   ✅ addLiquidity
+   ✅ withdrawLiquidity
+   ✅ mintCompleteSet
+   ✅ redeemCompleteSet
+   ✅ resolution
+
+✅ 所有关键指令都已部署
+    ✔ ✅ 安全修复已部署
+
+📦 程序信息:
+   - 程序 ID: 78LNFkZn5wjKjscWWDXe7ChmmZ9Fu1g6rhGfCJPy7BmR
+   - 网络: http://0.0.0.0:8899
+   - Anchor 版本: 0.32.1
+   - 安全修复版本: v3.2.0
+
+🔒 已包含的安全修复:
+   1. ✅ 统一重入保护机制
+   2. ✅ 动态 b 值安全管理
+   3. ✅ 保险池资金隔离验证
+   4. ✅ 配置参数验证增强
+    ✔ ✅ 程序版本信息
+
+============================================================
+🎉 所有基础测试通过！
+============================================================
+
+📋 下一步操作:
+   1. 初始化全局配置 (configure 指令)
+   2. 创建测试市场 (createMarket 指令)
+   3. 测试交易功能 (swap 指令)
+   4. 测试流动性功能 (addLiquidity/withdrawLiquidity)
+   5. 测试市场结算 (resolution 指令)
+
+⚠️  注意事项:
+   - 确保有足够的 SOL 余额
+   - 在 devnet 上测试前需要 airdrop
+   - 建议先在 localnet 完整测试
+
+🔗 有用的链接:
+   - Devnet Explorer: https://explorer.solana.com/address/78LNFkZn5wjKjscWWDXe7ChmmZ9Fu1g6rhGfCJPy7BmR?cluster=devnet
+   - 安全修复报告: ./SECURITY_FIXES_v3.2.0.md
+   - 快速使用指南: ./QUICK_FIX_GUIDE.md
+
+    ✔ ✅ 测试总结
+
+
+  7 passing (33ms)
+
+Done in 0.67s.
