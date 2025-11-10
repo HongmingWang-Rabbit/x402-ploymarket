@@ -2,39 +2,20 @@ import { AnchorProvider, Program, BN } from '@coral-xyz/anchor';
 import { Connection, PublicKey, Keypair } from '@solana/web3.js';
 import type { PredictionMarket } from './types';
 import IDL from './prediction_market.json';
+import { CONTRACT_CONFIG, PDA_SEEDS, TOKEN_NAMES } from '@/app/configs/contract';
+import { SOLANA_CONFIG } from '@/app/configs/solana';
 
 /**
  * Prediction Market Program Configuration
+ * @deprecated Use CONTRACT_CONFIG from @/app/configs/contract instead
  */
 export const PROGRAM_CONFIG = {
-  programId: new PublicKey('CzddKJkrkAAsECFhEA1KzNpL7RdrZ6PYG7WEkNRrXWgM'),
-  programDataAddress: new PublicKey('3jbSDdUupCHdM3ygqRDy3FfavndnNPay9bSad4voZVpq'), // TODO: Update this if program data address changed
-  authority: new PublicKey('2eExwMwQPhsAKXKygjpA6VChkr1iMgPugjrX47F6Tkyr'),
-  network: 'devnet' as const,
-  rpcUrl: process.env.NEXT_PUBLIC_SOLANA_RPC_ENDPOINT || 'https://api.devnet.solana.com',
+  ...CONTRACT_CONFIG,
+  rpcUrl: process.env.NEXT_PUBLIC_SOLANA_RPC_ENDPOINT || SOLANA_CONFIG.rpcUrl,
 };
 
-/**
- * PDA Seeds for account derivation
- */
-export const PDA_SEEDS = {
-  CONFIG: Buffer.from('config'),
-  GLOBAL: Buffer.from('global'),
-  MARKET: Buffer.from('market'),
-  MARKET_USDC_VAULT: Buffer.from('market_usdc_vault'),
-  USERINFO: Buffer.from('userinfo'),
-  METADATA: Buffer.from('metadata'),
-  WHITELIST: Buffer.from('wl-seed'),
-  LP_POSITION: Buffer.from('lp_position'),
-} as const;
-
-/**
- * Token names used in the program
- */
-export const TOKEN_NAMES = {
-  YES: 'agree',
-  NO: 'disagree',
-} as const;
+// Re-export from configs for backward compatibility
+export { PDA_SEEDS, TOKEN_NAMES };
 
 /**
  * Get Prediction Market Program instance

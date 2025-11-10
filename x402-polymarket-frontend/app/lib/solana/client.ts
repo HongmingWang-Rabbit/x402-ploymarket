@@ -500,10 +500,15 @@ export class PredictionMarketClient {
         throw new Error('This market has no liquidity. Please add liquidity first before trading.');
       }
 
+      // Determine recipient (defaults to wallet.publicKey if not specified)
+      const recipient = params.recipient || this.wallet.publicKey;
+      console.log('[swap] Recipient:', recipient.toBase58());
+
       const [configPDA] = PDAHelper.getConfigPDA();
       const [globalVaultPDA] = PDAHelper.getGlobalVaultPDA();
       const [marketPDA] = PDAHelper.getMarketPDA(market.yesTokenMint, market.noTokenMint);
       const [marketUsdcVaultPDA] = PDAHelper.getMarketUsdcVaultPDA(params.market);
+      // User info PDA is for the payer (who executes the transaction)
       const [userInfoPDA] = PDAHelper.getUserInfoPDA(this.wallet.publicKey, params.market);
 
       const config = await this.getConfig();
@@ -512,13 +517,13 @@ export class PredictionMarketClient {
       // Get USDC mint from config (market doesn't have usdcMint field)
       const usdcMint = config.usdcMint;
 
-      // Get user's USDC ATA
+      // Get user's USDC ATA (payer)
       const userUsdcAta = await getAssociatedTokenAddress(
         usdcMint,
         this.wallet.publicKey
       );
 
-      // Get user's YES/NO token ATAs
+      // Get user's YES/NO token ATAs (for the payer)
       const userYesAta = await getAssociatedTokenAddress(
         market.yesTokenMint,
         this.wallet.publicKey
@@ -526,6 +531,16 @@ export class PredictionMarketClient {
       const userNoAta = await getAssociatedTokenAddress(
         market.noTokenMint,
         this.wallet.publicKey
+      );
+
+      // Get recipient's YES/NO token ATAs (where tokens will be sent)
+      const recipientYesAta = await getAssociatedTokenAddress(
+        market.yesTokenMint,
+        recipient
+      );
+      const recipientNoAta = await getAssociatedTokenAddress(
+        market.noTokenMint,
+        recipient
       );
 
       // Global vault token accounts
@@ -553,41 +568,41 @@ export class PredictionMarketClient {
         config.teamWallet
       );
 
-      // Pre-create user token accounts and team wallet ATA to reduce CU usage in swap
+      // Pre-create recipient token accounts and team wallet ATA to reduce CU usage in swap
       const { Transaction } = await import('@solana/web3.js');
       const setupTx = new Transaction();
       let needsSetup = false;
 
-      // Check if user YES token account exists
-      const userYesAtaInfo = await this.connection.getAccountInfo(userYesAta);
-      if (!userYesAtaInfo) {
-        console.log('[swap] User YES token ATA does not exist, will create it...');
+      // Check if recipient YES token account exists
+      const recipientYesAtaInfo = await this.connection.getAccountInfo(recipientYesAta);
+      if (!recipientYesAtaInfo) {
+        console.log('[swap] Recipient YES token ATA does not exist, will create it...');
         const createYesAtaIx = createAssociatedTokenAccountInstruction(
           this.wallet.publicKey,
-          userYesAta,
-          this.wallet.publicKey,
+          recipientYesAta,
+          recipient,
           market.yesTokenMint
         );
         setupTx.add(createYesAtaIx);
         needsSetup = true;
       } else {
-        console.log('[swap] User YES token ATA already exists');
+        console.log('[swap] Recipient YES token ATA already exists');
       }
 
-      // Check if user NO token account exists
-      const userNoAtaInfo = await this.connection.getAccountInfo(userNoAta);
-      if (!userNoAtaInfo) {
-        console.log('[swap] User NO token ATA does not exist, will create it...');
+      // Check if recipient NO token account exists
+      const recipientNoAtaInfo = await this.connection.getAccountInfo(recipientNoAta);
+      if (!recipientNoAtaInfo) {
+        console.log('[swap] Recipient NO token ATA does not exist, will create it...');
         const createNoAtaIx = createAssociatedTokenAccountInstruction(
           this.wallet.publicKey,
-          userNoAta,
-          this.wallet.publicKey,
+          recipientNoAta,
+          recipient,
           market.noTokenMint
         );
         setupTx.add(createNoAtaIx);
         needsSetup = true;
       } else {
-        console.log('[swap] User NO token ATA already exists');
+        console.log('[swap] Recipient NO token ATA already exists');
       }
 
       // Check if team wallet USDC ATA exists
@@ -643,10 +658,10 @@ export class PredictionMarketClient {
         { pubkey: marketUsdcVaultPDA, isSigner: false, isWritable: true }, // market_usdc_vault
         { pubkey: userUsdcAta, isSigner: false, isWritable: true }, // user_usdc_ata
         { pubkey: teamUsdcAta, isSigner: false, isWritable: true }, // team_usdc_ata
-        { pubkey: this.wallet.publicKey, isSigner: true, isWritable: true }, // user
-        { pubkey: this.wallet.publicKey, isSigner: false, isWritable: true }, // recipient (same as user)
-        { pubkey: userYesAta, isSigner: false, isWritable: true }, // recipient_yes_ata (same as user)
-        { pubkey: userNoAta, isSigner: false, isWritable: true }, // recipient_no_ata (same as user)
+        { pubkey: this.wallet.publicKey, isSigner: true, isWritable: true }, // user (payer)
+        { pubkey: recipient, isSigner: false, isWritable: true }, // recipient (who receives tokens)
+        { pubkey: recipientYesAta, isSigner: false, isWritable: true }, // recipient_yes_ata
+        { pubkey: recipientNoAta, isSigner: false, isWritable: true }, // recipient_no_ata
         { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, // system_program
         { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false }, // token_program
         { pubkey: ASSOCIATED_TOKEN_PROGRAM_ID, isSigner: false, isWritable: false }, // associated_token_program
@@ -668,18 +683,20 @@ export class PredictionMarketClient {
       });
 
       // Add compute budget instructions to avoid CU limit errors
-      console.log('[swap] Adding compute budget instructions (1.4M CU limit - maximum)...');
+      console.log('[swap] Adding compute budget instructions (1.4M CU limit + heap frame)...');
       const computeUnitsIx = ComputeBudgetProgram.setComputeUnitLimit({
         units: 1_400_000, // Request 1.4M compute units (absolute maximum allowed by Solana)
       });
 
-      const computePriceIx = ComputeBudgetProgram.setComputeUnitPrice({
-        microLamports: 1, // Small priority fee to ensure execution
+      // Request additional heap memory for complex LMSR calculations
+      const heapFrameIx = ComputeBudgetProgram.requestHeapFrame({
+        bytes: 256 * 1024, // 256 KB heap (maximum allowed)
       });
 
+      // Note: Removed setComputeUnitPrice to save ~150 CU for the swap instruction
       const tx = new Transaction()
         .add(computeUnitsIx)
-        .add(computePriceIx)
+        .add(heapFrameIx)
         .add(swapIx);
 
       // Simulate transaction first to get better error messages

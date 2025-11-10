@@ -22,6 +22,7 @@
     "@coral-xyz/anchor": "^0.32.1",
     "@reown/appkit": "^1.8.13",
     "@reown/appkit-adapter-wagmi": "^1.8.13",
+    "@solana/kit": "^5.0.0",
     "@solana/spl-token": "^0.4.14",
     "@solana/wallet-adapter-base": "^0.9.27",
     "@solana/wallet-adapter-react": "^0.15.39",

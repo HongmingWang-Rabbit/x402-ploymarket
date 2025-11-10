@@ -174,6 +174,7 @@ export interface SwapParams {
   direction: TradeDirection;
   amount: number; // in USDC
   minOutput?: number; // slippage protection
+  recipient?: PublicKey; // Optional: recipient address (defaults to wallet.publicKey)
 }
 
 /**

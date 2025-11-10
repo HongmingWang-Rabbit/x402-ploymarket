@@ -2,7 +2,9 @@
 
 import React, { useState } from 'react';
 import { PublicKey } from '@solana/web3.js';
+import { useWallet } from '@solana/wallet-adapter-react';
 import { usePredictionMarket } from '@/app/hooks/usePredictionMarket';
+import { useX402Payment } from '@/app/hooks/useX402Payment';
 import type { Market, TokenType, TradeDirection } from '@/app/lib/solana/types';
 
 interface TradingInterfaceProps {
@@ -12,16 +14,20 @@ interface TradingInterfaceProps {
 }
 
 type TradeMode = 'swap' | 'mint' | 'redeem';
+type PaymentMethod = 'wallet' | 'x402';
 
 export function TradingInterface({ market, marketAddress, onSuccess }: TradingInterfaceProps) {
+  const wallet = useWallet();
   const { swap, mintCompleteSet, redeemCompleteSet, loading, isConnected } =
     usePredictionMarket();
+  const { buyTokenWithX402, loading: x402Loading } = useX402Payment();
 
   const [mode, setMode] = useState<TradeMode>('swap');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('wallet');
   const [tokenType, setTokenType] = useState<TokenType>(1); // 1 = YES, 0 = NO (matches contract)
   const [direction, setDirection] = useState<TradeDirection>(0); // 0 = Buy, 1 = Sell
   const [amount, setAmount] = useState('');
-  const [slippage, setSlippage] = useState('1');
+  const [slippage, setSlippage] = useState('5'); // Increased default to account for fees + AMM price impact
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -52,9 +58,31 @@ export function TradingInterface({ market, marketAddress, onSuccess }: TradingIn
     try {
       let result;
 
-      if (mode === 'swap') {
+      // X402 payment method - only available for Buy swaps
+      if (mode === 'swap' && direction === 0 && paymentMethod === 'x402') {
+        if (!wallet.publicKey) {
+          setError('Please connect your wallet');
+          return;
+        }
+
+        result = await buyTokenWithX402({
+          market: marketAddress.toBase58(),
+          tokenType,
+          amount: amountNum,
+          recipient: wallet.publicKey.toBase58(),
+          slippage: parseFloat(slippage),
+        });
+      }
+      // Regular wallet transactions
+      else if (mode === 'swap') {
         const slippageNum = parseFloat(slippage);
-        const minOutput = direction === 0 ? amountNum * (1 - slippageNum / 100) : 0;
+
+        // Calculate minOutput accounting for fees
+        // Contract charges 1.5% in fees (1% platform + 0.5% LP)
+        // minOutput = amount * (1 - fees) * (1 - slippage)
+        const feeRate = 0.015; // 1.5% total fees
+        const afterFees = amountNum * (1 - feeRate);
+        const minOutput = direction === 0 ? afterFees * (1 - slippageNum / 100) : 0;
 
         result = await swap({
           market: marketAddress,
@@ -205,6 +233,44 @@ export function TradingInterface({ market, marketAddress, onSuccess }: TradingIn
               </div>
             </div>
 
+            {/* Payment Method - only show for Buy */}
+            {direction === 0 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Payment Method
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('wallet')}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                      paymentMethod === 'wallet'
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                    }`}
+                  >
+                    Wallet
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('x402')}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                      paymentMethod === 'x402'
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                    }`}
+                  >
+                    x402 (USDC)
+                  </button>
+                </div>
+                {paymentMethod === 'x402' && (
+                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    Pay with USDC on Solana - backend executes swap on your behalf
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* Slippage */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -253,7 +319,7 @@ export function TradingInterface({ market, marketAddress, onSuccess }: TradingIn
         {/* Submit Button */}
         <button
           type="submit"
-          disabled={loading || isPaused || isResolved || !isConnected}
+          disabled={loading || x402Loading || isPaused || isResolved || !isConnected}
           className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {!isConnected
@@ -262,10 +328,10 @@ export function TradingInterface({ market, marketAddress, onSuccess }: TradingIn
             ? 'Market Paused'
             : isResolved
             ? 'Market Resolved'
-            : loading
-            ? 'Processing...'
+            : loading || x402Loading
+            ? paymentMethod === 'x402' ? 'Processing Payment...' : 'Processing...'
             : mode === 'swap'
-            ? `${direction === 0 ? 'Buy' : 'Sell'} ${tokenType === 1 ? 'YES' : 'NO'}`
+            ? `${direction === 0 ? 'Buy' : 'Sell'} ${tokenType === 1 ? 'YES' : 'NO'}${direction === 0 && paymentMethod === 'x402' ? ' with x402' : ''}`
             : mode === 'mint'
             ? 'Mint Complete Set'
             : 'Redeem Complete Set'}
