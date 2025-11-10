@@ -40,12 +40,6 @@ export function Header() {
             href="/"
             className="text-sm font-medium text-gray-700 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400 transition-colors"
           >
-            Home
-          </Link>
-          <Link
-            href="/markets"
-            className="text-sm font-medium text-gray-700 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400 transition-colors"
-          >
             Markets
           </Link>
           <Link
@@ -53,12 +47,6 @@ export function Header() {
             className="text-sm font-medium text-gray-700 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400 transition-colors"
           >
             Portfolio
-          </Link>
-          <Link
-            href="/admin"
-            className="text-sm font-medium text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition-colors"
-          >
-            Admin
           </Link>
         </nav>
 

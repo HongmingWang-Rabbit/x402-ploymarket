@@ -1,129 +1,121 @@
-"use client";
+'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React from 'react';
+import { MarketList } from '@/components/market/MarketList';
+import Link from 'next/link';
 
 export default function Home() {
-  const router = useRouter();
-  const [amount, setAmount] = useState('0.01');
-  const [description, setDescription] = useState('Custom payment');
-
-  const handlePayment = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    // Validate amount
-    const amountNum = parseFloat(amount);
-    if (isNaN(amountNum) || amountNum <= 0) {
-      alert('Please enter a valid amount greater than 0');
-      return;
-    }
-
-    // Navigate to paywall with amount and description as query params
-    const params = new URLSearchParams({
-      amount: amount,
-      description: description,
-    });
-    router.push(`/paywall?${params.toString()}`);
-  };
-
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-      <main className="flex min-h-screen w-full max-w-4xl flex-col items-center justify-center py-16 px-6 sm:px-8">
-        <div className="w-full space-y-8">
-          {/* Hero Section */}
-          <div className="text-center space-y-4">
-            <h1 className="text-5xl sm:text-6xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
-              X402 Market
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+              Prediction Markets
             </h1>
-            <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-              Multi-chain prediction markets powered by x402 protocol. Trade on your predictions using EVM or Solana.
+            <p className="text-gray-600 dark:text-gray-400">
+              Trade on the outcome of future events with USDC collateral
             </p>
           </div>
 
-          {/* Dynamic Payment Form */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-200 dark:border-gray-700">
-            <h2 className="text-2xl font-semibold mb-2">Try the Payment System</h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-              Test the multi-chain payment flow with a custom amount
-            </p>
-            <form onSubmit={handlePayment} className="space-y-4">
-              <div>
-                <label htmlFor="amount" className="block text-sm font-medium mb-2">
-                  Amount (in USD for EVM / SOL for Solana)
-                </label>
-                <input
-                  type="number"
-                  id="amount"
-                  step="0.01"
-                  min="0.01"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-neutral-800 dark:bg-gray-800 dark:text-white"
-                  placeholder="Enter amount (e.g., 0.01)"
-                />
+          <Link href="/markets/create">
+            <button className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all">
+              + Create Market
+            </button>
+          </Link>
+        </div>
+
+        {/* Info Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                <svg
+                  className="w-6 h-6 text-blue-600 dark:text-blue-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
               </div>
-
               <div>
-                <label htmlFor="description" className="block text-sm font-medium mb-2">
-                  Description (Optional)
-                </label>
-                <input
-                  type="text"
-                  id="description"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-neutral-800 dark:bg-gray-800 dark:text-white"
-                  placeholder="What is this payment for?"
-                />
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  Collateral
+                </div>
+                <div className="text-xl font-bold text-gray-900 dark:text-white">
+                  USDC
+                </div>
               </div>
+            </div>
+          </div>
 
-              <button
-                type="submit"
-                className="w-full px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-              >
-                Proceed to Payment 💳
-              </button>
-            </form>
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                <svg
+                  className="w-6 h-6 text-green-600 dark:text-green-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </div>
+              <div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  Pricing
+                </div>
+                <div className="text-xl font-bold text-gray-900 dark:text-white">
+                  LMSR AMM
+                </div>
+              </div>
+            </div>
+          </div>
 
-            {/* Quick Amount Buttons */}
-            <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-3">Quick Presets:</p>
-              <div className="grid grid-cols-3 gap-3">
-                <button
-                  onClick={() => {
-                    setAmount('0.01');
-                    setDescription('Small payment');
-                  }}
-                  className="px-4 py-3 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                <svg
+                  className="w-6 h-6 text-purple-600 dark:text-purple-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
                 >
-                  <div className="text-lg">🪣</div>
-                  <div className="text-xs mt-1">$0.01</div>
-                </button>
-                <button
-                  onClick={() => {
-                    setAmount('0.25');
-                    setDescription('Medium payment');
-                  }}
-                  className="px-4 py-3 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                >
-                  <div className="text-lg">💰</div>
-                  <div className="text-xs mt-1">$0.25</div>
-                </button>
-                <button
-                  onClick={() => {
-                    setAmount('1.00');
-                    setDescription('Large payment');
-                  }}
-                  className="px-4 py-3 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                >
-                  <div className="text-lg">💎</div>
-                  <div className="text-xs mt-1">$1.00</div>
-                </button>
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
+                  />
+                </svg>
+              </div>
+              <div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  Network
+                </div>
+                <div className="text-xl font-bold text-gray-900 dark:text-white">
+                  Solana
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </main>
+
+        {/* Markets List */}
+        <MarketList />
+      </div>
     </div>
   );
 }
