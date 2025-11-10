@@ -1,9 +1,101 @@
-    Finished `release` profile [optimized] target(s) in 0.35s
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.10s
-     Running unittests src/lib.rs (/Users/aricredemption/Projects/ploymarketX402/contract/target/debug/deps/prediction_market-d87a1b6f1b0be64a)
+🚀 开始完整市场流程测试
 
-Found a 'test' script in the Anchor.toml. Running it as a test suite!
+============================================================
+📍 测试钱包: 2eExwMwQPhsAKXKygjpA6VChkr1iMgPugjrX47F6Tkyr
+💰 SOL 余额: 9.0727 SOL
 
-Running test suite: "/Users/aricredemption/Projects/ploymarketX402/contract/Anchor.toml"
+============================================================
+步骤 1: 创建市场
+============================================================
+📋 市场 ID: 3x8iP58muhjLGMmYW4rQzP8kGWwua1rSBoCnkpafjNJJ
+🟢 YES Token Mint: 8PJZR2LW44MP2VKKydCSyhPJZwWQazEXokqcZhV8mmdZ
+🔴 NO Token Mint: 3zHiHnigGsZCoPAfEzbV1pZprkNXyP1F8pDNGCKdTgcN
+📊 Market PDA: 2RAN3utFKL5mjR5UPHBQiyiX4Z5PTFzHtbEYLVaKq2Ff
 
-Error: Your configured rpc port: 8899 is already in use
+📝 市场参数:
+  问题: 测试市场：BTC 会在2024年底突破10万美元吗？
+  LMSR B: 100000000 (100 USDC)
+
+📤 发送 create_market 交易...
+❌ 创建市场失败: Reached maximum depth for account resolution. Unresolved accounts: `noTokenMetadataAccount`, `globalNoTokenAccount`
+
+💥 测试失败: Reached maximum depth for account resolution. Unresolved accounts: `noTokenMetadataAccount`, `globalNoTokenAccount`
+🚀 开始完整市场流程测试
+
+============================================================
+📍 测试钱包: 2eExwMwQPhsAKXKygjpA6VChkr1iMgPugjrX47F6Tkyr
+💰 SOL 余额: 9.0540 SOL
+
+============================================================
+步骤 1: 创建 NO Token
+============================================================
+� N场O Token Mint: 9ZeHnXa66dRTynqQv5JrTmpe8qmwgK3pEPG8DGa649Vj
+
+📤 发送 mint_no_token 交易...
+✅ NO Token 创建成功!
+🔗 交易: https://explorer.solana.com/tx/5U9eYLyWvynbUX21AZrqMV8Nzx8GWVkp2trL7KPYkPWpne9FHB9Y4HoAZFpgQ5f7uxsTNqLQzioxaPfwzJpXXPFG?cluster=devnet
+
+============================================================
+步骤 2: 创建市场
+============================================================
+📋 市场 ID: 8vdaS4ZE5y6f3J4qf6meJvCfjunsAvoXoXDrsHgqcsDP
+🟢 YES Token Mint: CbSCKE1Sfntc1uF3D9nUKnkd7cyMwYXkPDPfJovCWfx3
+🔴 NO Token Mint: 9ZeHnXa66dRTynqQv5JrTmpe8qmwgK3pEPG8DGa649Vj
+📊 Market PDA: F7en4U6bzczvwJHrPCzrGXDziL7dBqSyMgWMttrkVcFx
+
+📝 市场参数:
+  名称: 测试市场：BTC 会在2024年底突破10万美元吗？
+  初始概率: 50 %
+
+📤 发送 create_market 交易...
+❌ 创建市场失败: Simulation failed. 
+Message: Transaction simulation failed: Error processing Instruction 0: Cross-program invocation with unauthorized signer or writable account. 
+Logs: 
+[
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+  "Program 11111111111111111111111111111111 invoke [2]",
+  "Program 11111111111111111111111111111111 success",
+  "Program log: CreateMarket start",
+  "Program log: ✅ Contract not paused, proceeding with market creation",
+  "Program log: Whitelist validation skipped (disabled in config)",
+  "Program log: ✅ Token validation passed: YES/NO decimals=6, freeze_authority=None, NO supply=0",
+  "9ZeHnXa66dRTynqQv5JrTmpe8qmwgK3pEPG8DGa649Vj's writable privilege escalated",
+  "Program CzddKJkrkAAsECFhEA1KzNpL7RdrZ6PYG7WEkNRrXWgM consumed 47667 of 200000 compute units",
+  "Program CzddKJkrkAAsECFhEA1KzNpL7RdrZ6PYG7WEkNRrXWgM failed: Cross-program invocation with unauthorized signer or writable account"
+]. 
+Catch the `SendTransactionError` and call `getLogs()` on it for full details.
+程序日志:
+   Program CzddKJkrkAAsECFhEA1KzNpL7RdrZ6PYG7WEkNRrXWgM invoke [1]
+   Program log: Instruction: CreateMarket
+   Program 11111111111111111111111111111111 invoke [2]
+   Program 11111111111111111111111111111111 success
+   Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA invoke [2]
+   Program log: Instruction: InitializeMint2
+   Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA consumed 2780 of 188059 compute units
+   Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success
+   Program 11111111111111111111111111111111 invoke [2]
+   Program 11111111111111111111111111111111 success
+   Program log: CreateMarket start
+   Program log: ✅ Contract not paused, proceeding with market creation
+   Program log: Whitelist validation skipped (disabled in config)
+   Program log: ✅ Token validation passed: YES/NO decimals=6, freeze_authority=None, NO supply=0
+   9ZeHnXa66dRTynqQv5JrTmpe8qmwgK3pEPG8DGa649Vj's writable privilege escalated
+   Program CzddKJkrkAAsECFhEA1KzNpL7RdrZ6PYG7WEkNRrXWgM consumed 47667 of 200000 compute units
+   Program CzddKJkrkAAsECFhEA1KzNpL7RdrZ6PYG7WEkNRrXWgM failed: Cross-program invocation with unauthorized signer or writable account
+
+💥 测试失败: Simulation failed. 
+Message: Transaction simulation failed: Error processing Instruction 0: Cross-program invocation with unauthorized signer or writable account. 
+Logs: 
+[
+  "Program TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA success",
+  "Program 11111111111111111111111111111111 invoke [2]",
+  "Program 11111111111111111111111111111111 success",
+  "Program log: CreateMarket start",
+  "Program log: ✅ Contract not paused, proceeding with market creation",
+  "Program log: Whitelist validation skipped (disabled in config)",
+  "Program log: ✅ Token validation passed: YES/NO decimals=6, freeze_authority=None, NO supply=0",
+  "9ZeHnXa66dRTynqQv5JrTmpe8qmwgK3pEPG8DGa649Vj's writable privilege escalated",
+  "Program CzddKJkrkAAsECFhEA1KzNpL7RdrZ6PYG7WEkNRrXWgM consumed 47667 of 200000 compute units",
+  "Program CzddKJkrkAAsECFhEA1KzNpL7RdrZ6PYG7WEkNRrXWgM failed: Cross-program invocation with unauthorized signer or writable account"
+]. 
+Catch the `SendTransactionError` and call `getLogs()` on it for full details.

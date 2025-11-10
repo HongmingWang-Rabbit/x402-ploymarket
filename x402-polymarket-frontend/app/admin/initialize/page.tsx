@@ -122,7 +122,7 @@ export default function InitializePage() {
         // 16-18: USDC 配置
         usdc_mint: USDC_MINT_DEVNET, // pubkey
         usdc_vault_min_balance: new BN(1_000_000), // u64: 1 USDC
-        min_usdc_liquidity: new BN(100_000_000), // u64: 100 USDC
+        min_usdc_liquidity: new BN(10_000_000), // u64: 10 USDC
         
         // 19-23: 保险池配置
         lp_insurance_pool_balance: new BN(0), // u64

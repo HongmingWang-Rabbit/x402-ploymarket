@@ -16,12 +16,12 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 // Configuration
-const PROGRAM_ID = new PublicKey('78LNFkZn5wjKjscWWDXe7ChmmZ9Fu1g6rhGfCJPy7BmR');
+const PROGRAM_ID = new PublicKey('CzddKJkrkAAsECFhEA1KzNpL7RdrZ6PYG7WEkNRrXWgM');
 const NETWORK = 'devnet';
 const RPC_URL = 'https://api.devnet.solana.com';
 
 // USDC Mint on Devnet
-const USDC_MINT_DEVNET = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
+const USDC_MINT_DEVNET = new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU');
 
 // Configuration Parameters
 const CONFIG_PARAMS = {
