@@ -122,7 +122,7 @@ async function testAllFunctions() {
           whitelist_enabled: false,
           usdc_mint: USDC_MINT_DEVNET,
           usdc_vault_min_balance: new BN(1_000_000),
-          min_usdc_liquidity: new BN(100_000_000),
+          min_usdc_liquidity: new BN(10_000_000),
           lp_insurance_pool_balance: new BN(0),
           lp_insurance_allocation_bps: 2000,
           insurance_loss_threshold_bps: 1000,

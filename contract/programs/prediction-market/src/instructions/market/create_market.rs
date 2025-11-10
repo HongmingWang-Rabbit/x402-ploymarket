@@ -57,6 +57,7 @@ pub struct CreateMarket<'info> {
     /// NO代币mint（需在mint_no_token指令中创建）
     /// ✅ FIX: 验证 mint authority 是全局金库，防止恶意铸造
     #[account(
+        mut,
         constraint = no_token.mint_authority == anchor_lang::solana_program::program_option::COption::Some(global_vault.key())
             @ PredictionMarketError::InvalidAuthority
     )]

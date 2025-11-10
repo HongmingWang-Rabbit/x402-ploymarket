@@ -1,5 +1,6 @@
 const anchor = require("@coral-xyz/anchor");
-const { PublicKey, Keypair } = require("@solana/web3.js");
+const { PublicKey, Keypair, SystemProgram } = require("@solana/web3.js");
+const { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } = require("@solana/spl-token");
 const fs = require("fs");
 
 async function main() {
@@ -25,24 +26,32 @@ async function main() {
     new anchor.Wallet(wallet),
     { commitment: "confirmed" }
   );
-  anchor.setProvider(provider);
 
-  // 加载程序 - 使用 devnet 程序 ID
+  // Devnet 程序 ID
   const programId = new PublicKey("CzddKJkrkAAsECFhEA1KzNpL7RdrZ6PYG7WEkNRrXWgM");
-  
-  // 加载 IDL
-  const idl = JSON.parse(fs.readFileSync("./target/idl/prediction_market.json", "utf-8"));
-  const program = new anchor.Program(idl, programId, provider);
-
   console.log("📋 程序 ID:", programId.toString());
+
+  // 加载 IDL
+  const idlPath = "./target/idl/prediction_market.json";
+  const idl = JSON.parse(fs.readFileSync(idlPath, "utf-8"));
+  
+  // 创建程序实例
+  const program = new anchor.Program(idl, programId, provider);
 
   // 查找配置 PDA
   const [configPda] = PublicKey.findProgramAddressSync(
     [Buffer.from("config")],
-    program.programId
+    programId
+  );
+
+  // 查找全局金库 PDA
+  const [globalVaultPda] = PublicKey.findProgramAddressSync(
+    [Buffer.from("global")],
+    programId
   );
 
   console.log("🔑 配置 PDA:", configPda.toString());
+  console.log("🔑 全局金库 PDA:", globalVaultPda.toString());
 
   // 检查配置是否已存在
   try {
@@ -51,7 +60,7 @@ async function main() {
     console.log("Authority:", configAccount.authority.toString());
     console.log("Team Wallet:", configAccount.teamWallet.toString());
     console.log("Platform Buy Fee:", configAccount.platformBuyFee.toString(), "bps");
-    console.log("USDC Mint:", configAccount.usdcMint.toString());
+    console.log("Min USDC Liquidity:", configAccount.minUsdcLiquidity.toString());
     return;
   } catch (err) {
     console.log("\n⚠️  配置不存在，开始初始化...\n");
@@ -59,35 +68,34 @@ async function main() {
 
   // 初始化配置
   try {
-    // Devnet USDC mint (官方测试代币)
-    // 如果没有官方的，我们使用一个占位符，后续可以更新
-    const usdcMint = new PublicKey("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"); // Devnet USDC
+    // Devnet USDC mint
+    const usdcMint = new PublicKey("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU");
     
-    // 创建配置对象 - 必须匹配Config结构体
+    // 创建配置对象
     const newConfig = {
       authority: wallet.publicKey,
-      pendingAuthority: anchor.web3.PublicKey.default,
+      pendingAuthority: PublicKey.default,
       teamWallet: wallet.publicKey,
-      platformBuyFee: new anchor.BN(100),  // 1% (100 bps)
-      platformSellFee: new anchor.BN(100),  // 1%
-      lpBuyFee: new anchor.BN(50),  // 0.5%
-      lpSellFee: new anchor.BN(50),  // 0.5%
-      tokenSupplyConfig: new anchor.BN(10000000000),  // 10000 USDC (必须 >= initial_real_token_reserves_config)
-      tokenDecimalsConfig: 6,  // USDC精度，必须是6
-      initialRealTokenReservesConfig: new anchor.BN(1000000000),  // 1000 USDC (LMSR b参数)
-      minSolLiquidity: new anchor.BN(0),  // 废弃字段
-      minTradingLiquidity: new anchor.BN(1000000000),  // 1000 USDC
-      initialized: true,
+      platformBuyFee: new anchor.BN(30),  // 0.3% (30 bps)
+      platformSellFee: new anchor.BN(30),  // 0.3%
+      lpBuyFee: new anchor.BN(20),  // 0.2%
+      lpSellFee: new anchor.BN(20),  // 0.2%
+      tokenSupplyConfig: new anchor.BN(1_000_000_000_000),  // 1M USDC
+      tokenDecimalsConfig: 6,  // USDC精度
+      initialRealTokenReservesConfig: new anchor.BN(500_000_000),  // 500 USDC
+      minSolLiquidity: new anchor.BN(5_000_000_000),  // 5 SOL (废弃)
+      minTradingLiquidity: new anchor.BN(100_000_000),  // 100 USDC
+      initialized: false,
       isPaused: false,
       whitelistEnabled: false,
       usdcMint: usdcMint,
-      usdcVaultMinBalance: new anchor.BN(5000),  // 0.005 USDC
-      minUsdcLiquidity: new anchor.BN(10000000),  // 10 USDC
+      usdcVaultMinBalance: new anchor.BN(1_000_000),  // 1 USDC
+      minUsdcLiquidity: new anchor.BN(10_000_000),  // 10 USDC ✅
       lpInsurancePoolBalance: new anchor.BN(0),
       lpInsuranceAllocationBps: 2000,  // 20%
       insuranceLossThresholdBps: 1000,  // 10%
       insuranceMaxCompensationBps: 5000,  // 50%
-      insurancePoolEnabled: false  // 初期禁用
+      insurancePoolEnabled: false
     };
 
     console.log("📝 配置参数:");
@@ -97,14 +105,18 @@ async function main() {
     console.log("  - Platform Sell Fee:", newConfig.platformSellFee.toString(), "bps");
     console.log("  - Token Decimals:", newConfig.tokenDecimalsConfig);
     console.log("  - USDC Mint:", newConfig.usdcMint.toString());
-    console.log("  - Initial Reserves:", newConfig.initialRealTokenReservesConfig.toString());
+    console.log("  - Min USDC Liquidity:", newConfig.minUsdcLiquidity.toString(), "(10 USDC)");
     console.log("\n开始交易...\n");
 
     const tx = await program.methods
       .configure(newConfig)
       .accounts({
-        authority: wallet.publicKey,
-        systemProgram: anchor.web3.SystemProgram.programId,
+        payer: wallet.publicKey,
+        config: configPda,
+        globalVault: globalVaultPda,
+        systemProgram: SystemProgram.programId,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
       })
       .rpc();
 
@@ -121,9 +133,7 @@ async function main() {
     console.log("Authority:", configAccount.authority.toString());
     console.log("Team Wallet:", configAccount.teamWallet.toString());
     console.log("Platform Buy Fee:", configAccount.platformBuyFee.toString(), "bps");
-    console.log("Platform Sell Fee:", configAccount.platformSellFee.toString(), "bps");
-    console.log("Token Decimals:", configAccount.tokenDecimalsConfig);
-    console.log("USDC Mint:", configAccount.usdcMint.toString());
+    console.log("Min USDC Liquidity:", configAccount.minUsdcLiquidity.toString());
     console.log("Paused:", configAccount.isPaused);
     
   } catch (err) {
