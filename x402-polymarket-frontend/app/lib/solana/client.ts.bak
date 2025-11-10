@@ -293,37 +293,13 @@ export class PredictionMarketClient {
 
       console.log('[createMarket] create_market instruction built successfully');
 
-      // Build set_mint_authority instruction
-      console.log('[createMarket] Building set_mint_authority instruction...');
-
-      const setMintAuthorityKeys = [
-        { pubkey: configPDA, isSigner: false, isWritable: false }, // global_config
-        { pubkey: globalVaultPDA, isSigner: false, isWritable: true }, // global_vault
-        { pubkey: yesTokenMint.publicKey, isSigner: false, isWritable: true }, // yes_token
-        { pubkey: noTokenMint.publicKey, isSigner: false, isWritable: true }, // no_token
-        { pubkey: marketPDA, isSigner: false, isWritable: false }, // market
-        { pubkey: this.wallet.publicKey, isSigner: true, isWritable: false }, // authority
-        { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false }, // token_program
-      ];
-
-      const setMintAuthorityData = coder.instruction.encode('setMintAuthority', {});
-
-      const setMintAuthorityIx = new TransactionInstruction({
-        keys: setMintAuthorityKeys,
-        programId: this.program.programId,
-        data: setMintAuthorityData,
-      });
-
-      console.log('[createMarket] set_mint_authority instruction built successfully');
-
-      // Build transaction with all three instructions
+      // Build transaction with both instructions
       const { Transaction } = await import('@solana/web3.js');
       const tx = new Transaction();
 
-      // Add all three instructions in order
-      tx.add(createNoMintIx);        // 1. Create NO mint
-      tx.add(createMarketIx);        // 2. Create market
-      tx.add(setMintAuthorityIx);    // 3. Transfer mint authority to market PDA
+      // Add both instructions
+      tx.add(createNoMintIx);  // First create NO mint
+      tx.add(createMarketIx);  // Then create market
 
       // Get fresh blockhash
       const { blockhash, lastValidBlockHeight } = await this.connection.getLatestBlockhash('confirmed');
@@ -367,78 +343,12 @@ export class PredictionMarketClient {
   }
 
   /**
-   * Transfer mint authority to market PDA (Required before adding liquidity)
-   * This must be called after createMarket to enable single-sided LP functionality
-   */
-  async setMintAuthority(params: { yesTokenMint: PublicKey; noTokenMint: PublicKey }): Promise<TransactionResult> {
-    try {
-      console.log('[setMintAuthority] Starting mint authority transfer...');
-
-      const [configPDA] = PDAHelper.getConfigPDA();
-      const [globalVaultPDA] = PDAHelper.getGlobalVaultPDA();
-      const [marketPDA] = PDAHelper.getMarketPDA(params.yesTokenMint, params.noTokenMint);
-
-      console.log('[setMintAuthority] Config PDA:', configPDA.toBase58());
-      console.log('[setMintAuthority] Global Vault PDA:', globalVaultPDA.toBase58());
-      console.log('[setMintAuthority] Market PDA:', marketPDA.toBase58());
-      console.log('[setMintAuthority] YES Token Mint:', params.yesTokenMint.toBase58());
-      console.log('[setMintAuthority] NO Token Mint:', params.noTokenMint.toBase58());
-
-      // Call set_mint_authority instruction
-      const signature = await this.program.methods
-        .setMintAuthority()
-        .accounts({
-          globalConfig: configPDA,
-          globalVault: globalVaultPDA,
-          yesToken: params.yesTokenMint,
-          noToken: params.noTokenMint,
-          market: marketPDA,
-          authority: this.wallet.publicKey,
-          tokenProgram: TOKEN_PROGRAM_ID,
-        })
-        .rpc();
-
-      console.log('[setMintAuthority] Transaction sent:', signature);
-
-      // Wait for confirmation
-      await this.connection.confirmTransaction(signature, 'confirmed');
-
-      console.log('[setMintAuthority] Mint authority transferred successfully');
-
-      return { signature, success: true };
-    } catch (error: any) {
-      console.error('Failed to set mint authority:', error);
-      return { signature: '', success: false, error: error.message };
-    }
-  }
-
-  /**
    * Swap tokens (buy/sell YES or NO tokens)
    */
   async swap(params: SwapParams): Promise<TransactionResult> {
     try {
       const market = await this.getMarket(params.market);
       if (!market) throw new Error('Market not found');
-
-      console.log('[swap] Market data keys:', Object.keys(market));
-      console.log('[swap] yesTokenMint:', market.yesTokenMint);
-      console.log('[swap] noTokenMint:', market.noTokenMint);
-      console.log('[swap] poolYesReserve:', market.poolYesReserve?.toString());
-      console.log('[swap] poolNoReserve:', market.poolNoReserve?.toString());
-      console.log('[swap] poolCollateralReserve:', market.poolCollateralReserve?.toString());
-
-      if (!market.yesTokenMint || !market.noTokenMint) {
-        throw new Error('Market token mints not found. Market data: ' + JSON.stringify(market, null, 2));
-      }
-
-      // Check if market has liquidity
-      const hasLiquidity = market.poolYesReserve && market.poolNoReserve &&
-                          market.poolYesReserve.toNumber() > 0 &&
-                          market.poolNoReserve.toNumber() > 0;
-
-      if (!hasLiquidity) {
-        throw new Error('This market has no liquidity. Please add liquidity first before trading.');
-      }
 
       const [configPDA] = PDAHelper.getConfigPDA();
       const [globalVaultPDA] = PDAHelper.getGlobalVaultPDA();
@@ -470,102 +380,64 @@ export class PredictionMarketClient {
 
       // Global vault token accounts
       const globalYesAta = await getAssociatedTokenAddress(
-        market.yesTokenMint,
+        market.yesToken,
         globalVaultPDA,
         true
       );
       const globalNoAta = await getAssociatedTokenAddress(
-        market.noTokenMint,
+        market.noToken,
         globalVaultPDA,
         true
       );
 
       // Market USDC vault ATA
       const marketUsdcAta = await getAssociatedTokenAddress(
-        usdcMint,
+        market.usdcMint,
         marketUsdcVaultPDA,
         true
       );
 
       // Team USDC ATA
       const teamUsdcAta = await getAssociatedTokenAddress(
-        usdcMint,
+        market.usdcMint,
         config.teamWallet
       );
 
-      // Manually build swap instruction to avoid Anchor validation issues
-      const { TransactionInstruction, Transaction, sendAndConfirmTransaction } = await import('@solana/web3.js');
-      const { BorshCoder } = await import('@coral-xyz/anchor');
+      const signature = await this.program.methods
+        .swap(
+          { [params.tokenType === 0 ? 'yes' : 'no']: {} },
+          { [params.direction === 0 ? 'buy' : 'sell']: {} },
+          parseUSDC(params.amount),
+          params.minOutput ? parseUSDC(params.minOutput) : new BN(0)
+        )
+        .accounts({
+          globalConfig: configPDA,
+          teamWallet: config.teamWallet,
+          market: marketPDA,
+          globalVault: globalVaultPDA,
+          yesToken: market.yesToken,
+          noToken: market.noToken,
+          globalYesAta,
+          globalNoAta,
+          userYesAta,
+          userNoAta,
+          userInfo: userInfoPDA,
+          usdcMint: market.usdcMint,
+          marketUsdcAta,
+          marketUsdcVault: marketUsdcVaultPDA,
+          userUsdcAta,
+          teamUsdcAta,
+          user: this.wallet.publicKey,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+          systemProgram: SystemProgram.programId,
+        })
+        .rpc();
 
-      const swapKeys = [
-        { pubkey: configPDA, isSigner: false, isWritable: true }, // global_config
-        { pubkey: config.teamWallet, isSigner: false, isWritable: true }, // team_wallet
-        { pubkey: marketPDA, isSigner: false, isWritable: true }, // market
-        { pubkey: globalVaultPDA, isSigner: false, isWritable: true }, // global_vault
-        { pubkey: market.yesTokenMint, isSigner: false, isWritable: false }, // yes_token
-        { pubkey: market.noTokenMint, isSigner: false, isWritable: false }, // no_token
-        { pubkey: globalYesAta, isSigner: false, isWritable: true }, // global_yes_ata
-        { pubkey: globalNoAta, isSigner: false, isWritable: true }, // global_no_ata
-        { pubkey: userYesAta, isSigner: false, isWritable: true }, // user_yes_ata
-        { pubkey: userNoAta, isSigner: false, isWritable: true }, // user_no_ata
-        { pubkey: userInfoPDA, isSigner: false, isWritable: true }, // user_info
-        { pubkey: usdcMint, isSigner: false, isWritable: false }, // usdc_mint
-        { pubkey: marketUsdcAta, isSigner: false, isWritable: true }, // market_usdc_ata
-        { pubkey: marketUsdcVaultPDA, isSigner: false, isWritable: true }, // market_usdc_vault
-        { pubkey: userUsdcAta, isSigner: false, isWritable: true }, // user_usdc_ata
-        { pubkey: teamUsdcAta, isSigner: false, isWritable: true }, // team_usdc_ata
-        { pubkey: this.wallet.publicKey, isSigner: true, isWritable: true }, // user
-        { pubkey: this.wallet.publicKey, isSigner: false, isWritable: true }, // recipient (same as user)
-        { pubkey: userYesAta, isSigner: false, isWritable: true }, // recipient_yes_ata (same as user)
-        { pubkey: userNoAta, isSigner: false, isWritable: true }, // recipient_no_ata (same as user)
-        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, // system_program
-        { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false }, // token_program
-        { pubkey: ASSOCIATED_TOKEN_PROGRAM_ID, isSigner: false, isWritable: false }, // associated_token_program
-      ];
-
-      const coder = new BorshCoder((this.program as any)._idl);
-      const swapData = coder.instruction.encode('swap', {
-        amount: parseUSDC(params.amount),
-        direction: params.direction, // 0 = Buy, 1 = Sell
-        tokenType: params.tokenType, // 0 = Yes, 1 = No
-        minimumReceiveAmount: params.minOutput ? parseUSDC(params.minOutput) : new BN(0),
-        deadline: new BN(Math.floor(Date.now() / 1000) + 300), // 5 minutes from now
-      });
-
-      const swapIx = new TransactionInstruction({
-        keys: swapKeys,
-        programId: this.program.programId,
-        data: swapData,
-      });
-
-      const tx = new Transaction().add(swapIx);
-
-      // Send the transaction with skipPreflight false to get simulation errors
-      console.log('[swap] Sending transaction with simulation...');
-      try {
-        const signature = await this.wallet.sendTransaction(tx, this.connection, {
-          skipPreflight: false,
-          preflightCommitment: 'confirmed',
-        });
-        console.log('[swap] Transaction sent:', signature);
-
-        await this.connection.confirmTransaction(signature, 'confirmed');
-        console.log('[swap] Transaction confirmed');
-
-        return { signature, success: true };
-      } catch (sendError: any) {
-        console.error('[swap] Send transaction error:', sendError);
-
-        // Try to extract simulation logs from the error
-        if (sendError.logs) {
-          console.error('[swap] Transaction logs:', sendError.logs);
-        }
-
-        throw sendError;
-      }
+      return { signature, success: true };
     } catch (error: any) {
       console.error('Failed to swap:', error);
-      return { signature: '', success: false, error: error.message || 'Unknown error' };
+      return { signature: '', success: false, error: error.message };
     }
   }
 
@@ -577,87 +449,47 @@ export class PredictionMarketClient {
       const market = await this.getMarket(params.market);
       if (!market) throw new Error('Market not found');
 
-      const config = await this.getConfig();
-      if (!config) throw new Error('Config not found');
-      const usdcMint = config.usdcMint;
-
       const [configPDA] = PDAHelper.getConfigPDA();
       const [globalVaultPDA] = PDAHelper.getGlobalVaultPDA();
-      const [marketPDA] = PDAHelper.getMarketPDA(market.yesTokenMint, market.noTokenMint);
+      const [marketPDA] = PDAHelper.getMarketPDA(market.yesToken, market.noToken);
       const [marketUsdcVaultPDA] = PDAHelper.getMarketUsdcVaultPDA(params.market);
       const [lpPositionPDA] = PDAHelper.getLPPositionPDA(params.market, this.wallet.publicKey);
 
       const userUsdcAta = await getAssociatedTokenAddress(
-        usdcMint,
+        market.usdcMint,
         this.wallet.publicKey
       );
 
       // Global vault token accounts
       const globalYesAta = await getAssociatedTokenAddress(
-        market.yesTokenMint,
+        market.yesToken,
         globalVaultPDA,
         true
       );
       const globalNoAta = await getAssociatedTokenAddress(
-        market.noTokenMint,
+        market.noToken,
         globalVaultPDA,
         true
       );
 
       // Market USDC vault ATA
       const marketUsdcAta = await getAssociatedTokenAddress(
-        usdcMint,
+        market.usdcMint,
         marketUsdcVaultPDA,
         true
       );
-
-      // Check if market USDC ATA exists, create if not
-      const marketUsdcAtaInfo = await this.connection.getAccountInfo(marketUsdcAta);
-
-      if (!marketUsdcAtaInfo) {
-        console.log('[addLiquidity] Market USDC ATA does not exist, creating it first...');
-
-        // Create the ATA in a separate transaction first
-        const { Transaction } = await import('@solana/web3.js');
-        const createAtaTx = new Transaction();
-
-        const createAtaIx = createAssociatedTokenAccountInstruction(
-          this.wallet.publicKey,
-          marketUsdcAta,
-          marketUsdcVaultPDA,
-          usdcMint
-        );
-        createAtaTx.add(createAtaIx);
-
-        try {
-          const createAtaSig = await this.wallet.sendTransaction(createAtaTx, this.connection);
-          console.log('[addLiquidity] Create ATA transaction sent:', createAtaSig);
-          await this.connection.confirmTransaction(createAtaSig, 'confirmed');
-          console.log('[addLiquidity] Market USDC ATA created successfully');
-        } catch (ataError: any) {
-          console.error('[addLiquidity] Failed to create market USDC ATA:', ataError);
-          throw new Error(`Failed to create market USDC ATA: ${ataError.message}`);
-        }
-      } else {
-        console.log('[addLiquidity] Market USDC ATA already exists');
-      }
-
-      // Now add liquidity using the program method
-      console.log('[addLiquidity] Adding liquidity...');
-      console.log('[addLiquidity] Amount (USDC):', params.usdcAmount);
-      console.log('[addLiquidity] Amount (raw):', parseUSDC(params.usdcAmount).toString());
 
       const signature = await this.program.methods
         .addLiquidity(parseUSDC(params.usdcAmount))
         .accounts({
           globalConfig: configPDA,
           market: marketPDA,
-          yesToken: market.yesTokenMint,
-          noToken: market.noTokenMint,
+          yesToken: market.yesToken,
+          noToken: market.noToken,
           globalVault: globalVaultPDA,
           globalYesAta,
           globalNoAta,
-          usdcMint: usdcMint,
+          usdcMint: market.usdcMint,
           marketUsdcAta,
           marketUsdcVault: marketUsdcVaultPDA,
           userUsdcAta,
@@ -669,21 +501,10 @@ export class PredictionMarketClient {
         })
         .rpc();
 
-      console.log('[addLiquidity] Transaction sent:', signature);
-      await this.connection.confirmTransaction(signature, 'confirmed');
-      console.log('[addLiquidity] Liquidity added successfully');
-
       return { signature, success: true };
     } catch (error: any) {
       console.error('Failed to add liquidity:', error);
-
-      // Provide user-friendly error messages
-      let errorMessage = error.message;
-      if (error.message?.includes('ValueTooSmall')) {
-        errorMessage = 'The amount is too small. Minimum liquidity amount is 100 USDC. Please provide at least 100 USDC.';
-      }
-
-      return { signature: '', success: false, error: errorMessage };
+      return { signature: '', success: false, error: error.message };
     }
   }
 
@@ -693,38 +514,34 @@ export class PredictionMarketClient {
   async withdrawLiquidity(params: WithdrawLiquidityParams): Promise<TransactionResult> {
     try {
       const market = await this.getMarket(params.market);
-
-      const config = await this.getConfig();
-      if (!config) throw new Error('Config not found');
-      const usdcMint = config.usdcMint;
       if (!market) throw new Error('Market not found');
 
       const [configPDA] = PDAHelper.getConfigPDA();
       const [globalVaultPDA] = PDAHelper.getGlobalVaultPDA();
-      const [marketPDA] = PDAHelper.getMarketPDA(market.yesTokenMint, market.noTokenMint);
+      const [marketPDA] = PDAHelper.getMarketPDA(market.yesToken, market.noToken);
       const [marketUsdcVaultPDA] = PDAHelper.getMarketUsdcVaultPDA(params.market);
       const [lpPositionPDA] = PDAHelper.getLPPositionPDA(params.market, this.wallet.publicKey);
 
       const userUsdcAta = await getAssociatedTokenAddress(
-        usdcMint,
+        market.usdcMint,
         this.wallet.publicKey
       );
 
       // Global vault token accounts
       const globalYesAta = await getAssociatedTokenAddress(
-        market.yesTokenMint,
+        market.yesToken,
         globalVaultPDA,
         true
       );
       const globalNoAta = await getAssociatedTokenAddress(
-        market.noTokenMint,
+        market.noToken,
         globalVaultPDA,
         true
       );
 
       // Market USDC vault ATA
       const marketUsdcAta = await getAssociatedTokenAddress(
-        usdcMint,
+        market.usdcMint,
         marketUsdcVaultPDA,
         true
       );
@@ -736,12 +553,12 @@ export class PredictionMarketClient {
         .accounts({
           globalConfig: configPDA,
           market: marketPDA,
-          yesToken: market.yesTokenMint,
-          noToken: market.noTokenMint,
+          yesToken: market.yesToken,
+          noToken: market.noToken,
           globalVault: globalVaultPDA,
           globalYesAta,
           globalNoAta,
-          usdcMint: usdcMint,
+          usdcMint: market.usdcMint,
           marketUsdcAta,
           marketUsdcVault: marketUsdcVaultPDA,
           userUsdcAta,
@@ -765,68 +582,47 @@ export class PredictionMarketClient {
   async mintCompleteSet(params: MintCompleteSetParams): Promise<TransactionResult> {
     try {
       const market = await this.getMarket(params.market);
-
-      const config = await this.getConfig();
-      if (!config) throw new Error('Config not found');
-      const usdcMint = config.usdcMint;
       if (!market) throw new Error('Market not found');
 
       const [configPDA] = PDAHelper.getConfigPDA();
       const [globalVaultPDA] = PDAHelper.getGlobalVaultPDA();
-      const [marketPDA] = PDAHelper.getMarketPDA(market.yesTokenMint, market.noTokenMint);
+      const [marketPDA] = PDAHelper.getMarketPDA(market.yesToken, market.noToken);
       const [marketUsdcVaultPDA] = PDAHelper.getMarketUsdcVaultPDA(params.market);
       const [userInfoPDA] = PDAHelper.getUserInfoPDA(this.wallet.publicKey, params.market);
 
       const userUsdcAta = await getAssociatedTokenAddress(
-        usdcMint,
+        market.usdcMint,
         this.wallet.publicKey
       );
       const userYesAta = await getAssociatedTokenAddress(
-        market.yesTokenMint,
+        market.yesToken,
         this.wallet.publicKey
       );
       const userNoAta = await getAssociatedTokenAddress(
-        market.noTokenMint,
+        market.noToken,
         this.wallet.publicKey
       );
 
       // Market USDC vault ATA
       const marketUsdcAta = await getAssociatedTokenAddress(
-        usdcMint,
+        market.usdcMint,
         marketUsdcVaultPDA,
         true
       );
 
-      // Check if market USDC ATA exists, create if not
-      const { Transaction } = await import('@solana/web3.js');
-      const tx = new Transaction();
-
-      const marketUsdcAtaInfo = await this.connection.getAccountInfo(marketUsdcAta);
-      if (!marketUsdcAtaInfo) {
-        console.log('[mintCompleteSet] Creating market USDC ATA...');
-        const createAtaIx = createAssociatedTokenAccountInstruction(
-          this.wallet.publicKey,
-          marketUsdcAta,
-          marketUsdcVaultPDA,
-          usdcMint
-        );
-        tx.add(createAtaIx);
-      }
-
       const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
 
-      // Build mint complete set instruction
-      const mintIx = await this.program.methods
+      const signature = await this.program.methods
         .mintCompleteSet(parseUSDC(params.usdcAmount))
         .accounts({
           globalConfig: configPDA,
           market: marketPDA,
           globalVault: globalVaultPDA,
-          yesToken: market.yesTokenMint,
-          noToken: market.noTokenMint,
+          yesToken: market.yesToken,
+          noToken: market.noToken,
           userYesAta,
           userNoAta,
-          usdcMint: usdcMint,
+          usdcMint: market.usdcMint,
           marketUsdcVault: marketUsdcVaultPDA,
           marketUsdcAta,
           userUsdcAta,
@@ -836,13 +632,7 @@ export class PredictionMarketClient {
           tokenProgram: TOKEN_PROGRAM_ID,
           associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
         })
-        .instruction();
-
-      tx.add(mintIx);
-
-      // Send transaction
-      const signature = await this.wallet.sendTransaction(tx, this.connection);
-      await this.connection.confirmTransaction(signature, 'confirmed');
+        .rpc();
 
       return { signature, success: true };
     } catch (error: any) {
@@ -857,34 +647,30 @@ export class PredictionMarketClient {
   async redeemCompleteSet(params: RedeemCompleteSetParams): Promise<TransactionResult> {
     try {
       const market = await this.getMarket(params.market);
-
-      const config = await this.getConfig();
-      if (!config) throw new Error('Config not found');
-      const usdcMint = config.usdcMint;
       if (!market) throw new Error('Market not found');
 
       const [configPDA] = PDAHelper.getConfigPDA();
       const [globalVaultPDA] = PDAHelper.getGlobalVaultPDA();
-      const [marketPDA] = PDAHelper.getMarketPDA(market.yesTokenMint, market.noTokenMint);
+      const [marketPDA] = PDAHelper.getMarketPDA(market.yesToken, market.noToken);
       const [marketUsdcVaultPDA] = PDAHelper.getMarketUsdcVaultPDA(params.market);
       const [userInfoPDA] = PDAHelper.getUserInfoPDA(this.wallet.publicKey, params.market);
 
       const userUsdcAta = await getAssociatedTokenAddress(
-        usdcMint,
+        market.usdcMint,
         this.wallet.publicKey
       );
       const userYesAta = await getAssociatedTokenAddress(
-        market.yesTokenMint,
+        market.yesToken,
         this.wallet.publicKey
       );
       const userNoAta = await getAssociatedTokenAddress(
-        market.noTokenMint,
+        market.noToken,
         this.wallet.publicKey
       );
 
       // Market USDC vault ATA
       const marketUsdcAta = await getAssociatedTokenAddress(
-        usdcMint,
+        market.usdcMint,
         marketUsdcVaultPDA,
         true
       );
@@ -898,10 +684,10 @@ export class PredictionMarketClient {
           market: marketPDA,
           globalVault: globalVaultPDA,
           marketUsdcVault: marketUsdcVaultPDA,
-          usdcMint: usdcMint,
+          usdcMint: market.usdcMint,
           marketUsdcAta,
-          yesToken: market.yesTokenMint,
-          noToken: market.noTokenMint,
+          yesToken: market.yesToken,
+          noToken: market.noToken,
           userYesAta,
           userNoAta,
           userUsdcAta,
@@ -925,12 +711,12 @@ export class PredictionMarketClient {
    */
   calculatePrice(market: Market, tokenType: TokenType): number {
     // Handle undefined reserves (new markets)
-    if (!market.poolYesReserve || !market.poolNoReserve) {
+    if (!market.yesReserve || !market.noReserve) {
       return 0.5; // Default 50/50 for new markets
     }
 
-    const yesReserve = market.poolYesReserve.toNumber();
-    const noReserve = market.poolNoReserve.toNumber();
+    const yesReserve = market.yesReserve.toNumber();
+    const noReserve = market.noReserve.toNumber();
     const total = yesReserve + noReserve;
 
     if (total === 0) return 0.5;

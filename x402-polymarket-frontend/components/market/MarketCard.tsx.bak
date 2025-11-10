@@ -15,8 +15,8 @@ interface MarketCardProps {
 
 export function MarketCard({ address, market, yesPrice, noPrice }: MarketCardProps) {
   // Handle undefined reserves for newly created markets
-  const totalLiquidity = (market.poolYesReserve && market.poolNoReserve)
-    ? formatUSDC(market.poolYesReserve.add(market.poolNoReserve))
+  const totalLiquidity = (market.yesReserve && market.noReserve)
+    ? formatUSDC(market.yesReserve.add(market.noReserve))
     : '0.00';
   const isResolved = market.status === 2; // Resolved
   const isPaused = market.status === 1; // Paused

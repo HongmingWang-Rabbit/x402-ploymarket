@@ -17,6 +17,9 @@ export default function AdminPage() {
   const wallet = useWallet();
 
   const [configExists, setConfigExists] = useState<boolean | null>(null);
+  const [configData, setConfigData] = useState<any>(null);
+  const [configPDA, setConfigPDA] = useState<PublicKey | null>(null);
+  const [checkingConfig, setCheckingConfig] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -30,23 +33,52 @@ export default function AdminPage() {
     tokenSupply: '1000000',
     initialReserves: '500',
     whitelistEnabled: false,
+    minUsdcLiquidity: '100', // 100 USDC minimum for add liquidity
   });
 
   // Check if config exists
   useEffect(() => {
     const checkConfig = async () => {
-      if (!wallet.publicKey) return;
+      if (!wallet.publicKey) {
+        setCheckingConfig(false);
+        return;
+      }
+
+      setCheckingConfig(true);
 
       try {
         const program = getPredictionMarketProgram(connection, wallet);
-        const [configPDA] = PDAHelper.getConfigPDA();
+        const [derivedConfigPDA] = PDAHelper.getConfigPDA();
+        setConfigPDA(derivedConfigPDA);
 
-        const config = await program.account.config.fetch(configPDA);
+        console.log('🔍 Checking config PDA:', derivedConfigPDA.toBase58());
+
+        // Try to fetch the config account
+        const config = await program.account.config.fetch(derivedConfigPDA);
+
+        console.log('✅ Config exists!');
+        console.log('  Authority:', config.authority.toBase58());
+        console.log('  Team Wallet:', config.teamWallet.toBase58());
+        console.log('  USDC Mint:', config.usdcMint.toBase58());
+        console.log('  Platform Buy Fee:', config.platformBuyFee, 'bp');
+        console.log('  Platform Sell Fee:', config.platformSellFee, 'bp');
+        console.log('  LP Buy Fee:', config.lpBuyFee, 'bp');
+        console.log('  LP Sell Fee:', config.lpSellFee, 'bp');
+        console.log('  Whitelist Enabled:', config.whitelistEnabled);
+        console.log('  Is Paused:', config.isPaused);
+
         setConfigExists(true);
-        console.log('Config exists:', config);
-      } catch (err) {
+        setConfigData(config);
+      } catch (err: any) {
+        console.log('❌ Config does not exist yet');
+        console.log('  Error:', err.message);
+        console.log('  Expected PDA:', configPDA?.toBase58());
+        console.log('  This is normal if the program has not been initialized.');
+
         setConfigExists(false);
-        console.log('Config does not exist yet');
+        setConfigData(null);
+      } finally {
+        setCheckingConfig(false);
       }
     };
 
@@ -88,11 +120,13 @@ export default function AdminPage() {
       const initialReserves = new BN(parseFloat(formData.initialReserves) * 1_000_000);
 
       console.log('Initializing with params:', {
-        admin: wallet.publicKey.toBase58(),
+        authority: wallet.publicKey.toBase58(),
         teamWallet: teamWalletPubkey.toBase58(),
         usdcMint: USDC_MINT_DEVNET.toBase58(),
-        swapFee,
-        lpFee,
+        platformBuyFee: swapFee,
+        platformSellFee: swapFee,
+        lpBuyFee: lpFee,
+        lpSellFee: lpFee,
         tokenDecimals,
         tokenSupply: tokenSupply.toString(),
         initialReserves: initialReserves.toString(),
@@ -102,16 +136,29 @@ export default function AdminPage() {
       // Call configure instruction
       const tx = await program.methods
         .configure({
-          admin: wallet.publicKey,
+          authority: wallet.publicKey,
+          pendingAuthority: PublicKey.default,
           teamWallet: teamWalletPubkey,
-          usdcMint: USDC_MINT_DEVNET,
-          swapFee,
-          lpFee,
-          tokenDecimalsConfig: tokenDecimals,
+          platformBuyFee: new BN(swapFee),
+          platformSellFee: new BN(swapFee),
+          lpBuyFee: new BN(lpFee),
+          lpSellFee: new BN(lpFee),
           tokenSupplyConfig: tokenSupply,
+          tokenDecimalsConfig: tokenDecimals,
           initialRealTokenReservesConfig: initialReserves,
+          minSolLiquidity: new BN(0), // Deprecated
+          minTradingLiquidity: new BN(1000_000_000), // 1000 USDC minimum
+          initialized: true,
+          isPaused: false,
           whitelistEnabled: formData.whitelistEnabled,
-          emergencyStop: false,
+          usdcMint: USDC_MINT_DEVNET,
+          usdcVaultMinBalance: new BN(5000), // 0.005 USDC
+          minUsdcLiquidity: new BN(parseFloat(formData.minUsdcLiquidity) * 1_000_000), // Convert USDC to raw units
+          lpInsurancePoolBalance: new BN(0),
+          lpInsuranceAllocationBps: 2000, // 20%
+          insuranceLossThresholdBps: 1000, // 10%
+          insuranceMaxCompensationBps: 5000, // 50%
+          insurancePoolEnabled: false, // Disabled initially (no platform fees)
         })
         .accounts({
           payer: wallet.publicKey,
@@ -215,8 +262,14 @@ export default function AdminPage() {
               </span>
             </div>
             <div className="flex justify-between">
+              <span className="text-gray-600 dark:text-gray-400">Config PDA:</span>
+              <span className="font-mono text-xs text-gray-900 dark:text-white">
+                {configPDA?.toBase58().slice(0, 8)}...
+              </span>
+            </div>
+            <div className="flex justify-between">
               <span className="text-gray-600 dark:text-gray-400">Config Status:</span>
-              {configExists === null ? (
+              {checkingConfig ? (
                 <span className="text-gray-500">Checking...</span>
               ) : configExists ? (
                 <span className="text-green-600 dark:text-green-400">✅ Initialized</span>
@@ -407,6 +460,26 @@ export default function AdminPage() {
             </div>
           </div>
 
+          {/* Minimum Liquidity */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Minimum Liquidity (USDC)
+            </label>
+            <input
+              type="number"
+              value={formData.minUsdcLiquidity}
+              onChange={(e) => setFormData({ ...formData, minUsdcLiquidity: e.target.value })}
+              min="1"
+              max="10000"
+              step="1"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              required
+            />
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Minimum USDC required to add liquidity (1 - 10,000 USDC)
+            </p>
+          </div>
+
           {/* Whitelist Toggle */}
           <div className="mb-6">
             <label className="flex items-center cursor-pointer">
@@ -435,6 +508,7 @@ export default function AdminPage() {
               <li>• USDC Mint: {USDC_MINT_DEVNET.toBase58().slice(0, 8)}... (devnet)</li>
               <li>• Swap Fee: {parseInt(formData.swapFee) / 100}%</li>
               <li>• LP Fee: {parseInt(formData.lpFee) / 100}%</li>
+              <li>• Min Liquidity: {formData.minUsdcLiquidity} USDC</li>
               <li>• Whitelist: {formData.whitelistEnabled ? 'Enabled' : 'Disabled'}</li>
             </ul>
           </div>

@@ -5,6 +5,7 @@ import { AppKitProvider } from '@/app/providers/AppKitProvider'
 import { SolanaWalletProviderComponent, ChainTypeProvider } from '@/app/providers'
 import { WalletAdapterNetwork } from '@solana/wallet-adapter-base'
 import { Header } from '@/components/layout'
+import { ToastProvider } from '@/components/providers/ToastProvider'
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -42,6 +43,7 @@ export default function RootLayout({
               <main className="min-h-screen">
                 {children}
               </main>
+              <ToastProvider />
             </SolanaWalletProviderComponent>
           </AppKitProvider>
         </ChainTypeProvider>

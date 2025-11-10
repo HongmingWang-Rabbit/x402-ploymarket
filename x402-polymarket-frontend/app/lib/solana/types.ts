@@ -39,36 +39,96 @@ export enum TokenType {
  * Market data structure
  */
 export interface Market {
-  yesToken: PublicKey;
-  noToken: PublicKey;
+  yesTokenMint: PublicKey;  // was yesToken
+  noTokenMint: PublicKey;   // was noToken
   creator: PublicKey;
-  yesReserve: BN;
-  noReserve: BN;
-  usdcReserve: BN;
-  lpShares: BN;
-  lmsrB: BN;
-  outcome: MarketOutcome;
-  status: MarketStatus;
-  resolutionTime: BN;
-  startSlot: BN;
-  endingSlot: BN;
+  totalCollateralLocked: BN;
   totalYesMinted: BN;
   totalNoMinted: BN;
-  totalFeesCollected: BN;
+  poolCollateralReserve: BN;
+  poolYesReserve: BN;  // was yesReserve
+  poolNoReserve: BN;   // was noReserve
+  totalLpShares: BN;   // was lpShares
+  lmsrB: BN;
+  lmsrQYes: BN;
+  lmsrQNo: BN;
+  initialYesTokenReserves: BN;
+  realYesTokenReserves: BN;
+  realYesSolReserves: BN;
+  tokenYesTotalSupply: BN;
+  initialNoTokenReserves: BN;
+  realNoTokenReserves: BN;
+  realNoSolReserves: BN;
+  tokenNoTotalSupply: BN;
+  isCompleted: boolean;
+  startSlot: BN | null;
+  endingSlot: BN | null;
+  resolutionYesRatio: BN;
+  resolutionNoRatio: BN;
+  winnerTokenType: number;
+  swapInProgress: boolean;
+  addLiquidityInProgress: boolean;
+  accumulatedLpFees: BN;
+  feePerShareCumulative: BN;
+  poolSettled: boolean;
+  displayName: string;
+  withdrawInProgress: boolean;
+  claimInProgress: boolean;
+  initialYesProb: number;
+  createdAt: BN;
+  insurancePoolContribution: BN;
+  circuitBreakerActive: boolean;
+  circuitBreakerTriggeredAt: BN;
+  withdrawLast24h: BN;
+  withdrawTrackingStart: BN;
+  initialYesReserve: BN;
+  initialNoReserve: BN;
+  hasFeeOverride: boolean;
+  platformBuyFeeOverride: BN;
+  platformSellFeeOverride: BN;
+  lpBuyFeeOverride: BN;
+  lpSellFeeOverride: BN;
+  marketPaused: boolean;
+  sentinelNoMinted: boolean;
+
+  // Legacy aliases for backwards compatibility
+  yesToken?: PublicKey;
+  noToken?: PublicKey;
+  yesReserve?: BN;
+  noReserve?: BN;
+  lpShares?: BN;
+  status?: MarketStatus;
+  outcome?: MarketOutcome;
+  usdcMint?: PublicKey;
 }
 
 /**
  * Global config structure
  */
 export interface Config {
-  admin: PublicKey;
+  authority: PublicKey;
+  pendingAuthority: PublicKey;
   teamWallet: PublicKey;
-  swapFee: number;
-  lpFee: number;
-  emergencyStop: boolean;
-  usdcMint: PublicKey;
+  platformBuyFee: BN;
+  platformSellFee: BN;
+  lpBuyFee: BN;
+  lpSellFee: BN;
+  tokenSupplyConfig: BN;
   tokenDecimalsConfig: number;
+  initialRealTokenReservesConfig: BN;
+  minSolLiquidity: BN;
+  minTradingLiquidity: BN;
+  initialized: boolean;
+  isPaused: boolean;
   whitelistEnabled: boolean;
+  usdcMint: PublicKey;
+  usdcVaultMinBalance: BN;
+  minUsdcLiquidity: BN;
+  lpInsurancePoolBalance: BN;
+  lpInsuranceAllocationBps: number;
+  insuranceLossThresholdBps: number;
+  insuranceMaxCompensationBps: number;
+  insurancePoolEnabled: boolean;
 }
 
 /**

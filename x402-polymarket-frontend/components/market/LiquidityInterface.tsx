@@ -21,9 +21,11 @@ export function LiquidityInterface({ market, marketAddress }: LiquidityInterface
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const isPaused = market.status === 1;
-  const isResolved = market.status === 2;
-  const totalLiquidity = formatUSDC(market.yesReserve.add(market.noReserve).add(market.usdcReserve));
+  const isPaused = market.marketPaused;
+  const isResolved = market.isCompleted;
+  const totalLiquidity = (market.poolYesReserve && market.poolNoReserve && market.poolCollateralReserve)
+    ? formatUSDC(market.poolYesReserve.add(market.poolNoReserve).add(market.poolCollateralReserve))
+    : '0.00';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -138,15 +140,15 @@ export function LiquidityInterface({ market, marketAddress }: LiquidityInterface
             type="number"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            step="0.01"
-            min="0"
-            placeholder="0.00"
+            step="10"
+            min={mode === 'add' ? "100" : "0"}
+            placeholder={mode === 'add' ? "Min: 100 USDC" : "0.00"}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             required
           />
           {mode === 'add' && (
             <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-              Single-sided LP: Provide USDC only
+              Single-sided LP: Provide USDC only (Minimum: 100 USDC)
             </p>
           )}
         </div>
