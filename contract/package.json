@@ -4,6 +4,7 @@
     "lint:fix": "prettier */*.js \"*/**/*{.js,.ts}\" -w",
     "lint": "prettier */*.js \"*/**/*{.js,.ts}\" --check",
     "test": "mocha -r ts-node/register tests/**/*.ts",
+    "t": "lsof -ti:8899 && anchor test",
     "script": "ts-node ./cli/command.ts"
   },
   "dependencies": {
