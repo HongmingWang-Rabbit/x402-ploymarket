@@ -133,7 +133,8 @@ export class PredictionMarketClient {
       let lpShares = new BN(0);
       try {
         const lpPosition = await this.account.lpPosition.fetch(lpPositionPDA);
-        lpShares = (lpPosition as any).shares || new BN(0);
+        // Anchor converts snake_case to camelCase, so lp_shares becomes lpShares
+        lpShares = (lpPosition as any).lpShares || new BN(0);
       } catch (e: any) {
         // No LP position, shares is 0
       }
@@ -864,6 +865,31 @@ export class PredictionMarketClient {
       await this.connection.confirmTransaction(signature, 'confirmed');
       console.log('[addLiquidity] Liquidity added successfully');
 
+      // Debug: Check the LP position and market state after adding liquidity
+      try {
+        const lpPositionAfter = await this.account.lpPosition.fetch(lpPositionPDA);
+        console.log('[addLiquidity] LP Position after add:', {
+          lpShares: (lpPositionAfter as any).lpShares?.toString(),
+          investedUsdc: (lpPositionAfter as any).investedUsdc?.toString(),
+          user: (lpPositionAfter as any).user?.toBase58(),
+          market: (lpPositionAfter as any).market?.toBase58(),
+        });
+
+        const marketAfter = await this.getMarket(params.market);
+        if (marketAfter) {
+          console.log('[addLiquidity] Market total LP shares:', marketAfter.totalLpShares?.toString());
+          console.log('[addLiquidity] Pool collateral reserve:', marketAfter.poolCollateralReserve?.toString());
+        }
+
+        // Fetch transaction details to see events
+        const txDetails = await this.connection.getTransaction(signature, {
+          maxSupportedTransactionVersion: 0,
+        });
+        console.log('[addLiquidity] Transaction logs:', txDetails?.meta?.logMessages);
+      } catch (e) {
+        console.error('[addLiquidity] Failed to fetch debug info:', e);
+      }
+
       return { signature, success: true };
     } catch (error: any) {
       console.error('Failed to add liquidity:', error);
@@ -890,11 +916,27 @@ export class PredictionMarketClient {
       const usdcMint = config.usdcMint;
       if (!market) throw new Error('Market not found');
 
+      // Check LP position first
+      const [lpPositionPDA] = PDAHelper.getLPPositionPDA(params.market, this.wallet.publicKey);
+      let lpPosition: any;
+      try {
+        lpPosition = await this.account.lpPosition.fetch(lpPositionPDA);
+      } catch (e) {
+        throw new Error('No LP position found. You need to add liquidity first.');
+      }
+
+      // Validate sufficient LP shares (Anchor converts lp_shares to lpShares)
+      const lpSharesBN = lpPosition.lpShares || new BN(0);
+      const lpShares = lpSharesBN.toNumber();
+      const requestedShares = params.lpSharesAmount;
+      if (requestedShares > lpShares) {
+        throw new Error(`Insufficient LP shares. You have ${(lpShares / 1e6).toFixed(6)} shares but requested ${(requestedShares / 1e6).toFixed(6)}`);
+      }
+
       const [configPDA] = PDAHelper.getConfigPDA();
       const [globalVaultPDA] = PDAHelper.getGlobalVaultPDA();
       const [marketPDA] = PDAHelper.getMarketPDA(market.yesTokenMint, market.noTokenMint);
       const [marketUsdcVaultPDA] = PDAHelper.getMarketUsdcVaultPDA(params.market);
-      const [lpPositionPDA] = PDAHelper.getLPPositionPDA(params.market, this.wallet.publicKey);
 
       const userUsdcAta = await getAssociatedTokenAddress(
         usdcMint,
@@ -1057,7 +1099,7 @@ export class PredictionMarketClient {
       const [configPDA] = PDAHelper.getConfigPDA();
       const [globalVaultPDA] = PDAHelper.getGlobalVaultPDA();
       const [marketPDA] = PDAHelper.getMarketPDA(market.yesTokenMint, market.noTokenMint);
-      const [marketUsdcVaultPDA] = PDAHelper.getMarketUsdcVaultPDA(params.market);
+      const [marketUsdcVaultPDA, marketUsdcVaultBump] = PDAHelper.getMarketUsdcVaultPDA(params.market);
       const [userInfoPDA] = PDAHelper.getUserInfoPDA(this.wallet.publicKey, params.market);
 
       const userUsdcAta = await getAssociatedTokenAddress(
@@ -1083,7 +1125,7 @@ export class PredictionMarketClient {
       const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
 
       const signature = await this.methods
-        .redeemCompleteSet(new BN(params.amount))
+        .redeemCompleteSet(new BN(params.amount), marketUsdcVaultBump)
         .accounts({
           globalConfig: configPDA,
           market: marketPDA,

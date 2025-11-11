@@ -11,10 +11,10 @@ import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
 const queryClient = new QueryClient();
 
 // 1. Get projectId from environment
-const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID;
+const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'dummy-project-id';
 
-if (!projectId) {
-  console.warn('NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID is not set');
+if (!process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID) {
+  console.warn('NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID is not set - using dummy project ID');
 }
 
 // 2. Create wagmiConfig
@@ -27,31 +27,29 @@ const metadata = {
 
 const wagmiAdapter = new WagmiAdapter({
   networks: [mainnet, base, baseSepolia, sepolia],
-  projectId: projectId || '',
+  projectId,
 });
 
-// 3. Create modal
-if (projectId) {
-  createAppKit({
-    adapters: [wagmiAdapter],
-    networks: [
-      // EVM networks
-      mainnet,
-      base,
-      baseSepolia,
-      sepolia,
-      // Solana networks
-      solanaDevnet,
-      solanaTestnet,
-      solana,
-    ],
-    projectId,
-    metadata,
-    features: {
-      analytics: true, // Optional - Enable analytics
-    },
-  });
-}
+// 3. Create modal - always initialize to prevent hook errors
+createAppKit({
+  adapters: [wagmiAdapter],
+  networks: [
+    // EVM networks
+    mainnet,
+    base,
+    baseSepolia,
+    sepolia,
+    // Solana networks
+    solanaDevnet,
+    solanaTestnet,
+    solana,
+  ],
+  projectId,
+  metadata,
+  features: {
+    analytics: true, // Optional - Enable analytics
+  },
+});
 
 export function AppKitProvider({ children }: { children: ReactNode }) {
   return (
