@@ -1262,25 +1262,81 @@ export class SolanaAdapter implements IBlockchainAdapter {
     try {
       const provider = this.createReadOnlyProvider();
       const program = new Program(idl as any, provider);
-
-      // Fetch user info accounts
       const userPubkey = new PublicKey(userAddress);
-      const userInfoAccounts = await (program.account as any).userInfo?.all([
+
+      // Fetch all markets to check user's positions
+      const marketAccounts = await (program.account as any).market.all();
+
+      // Fetch all LP positions for this user
+      const lpPositionAccounts = await (program.account as any).lpPosition?.all([
         {
           memcmp: {
-            offset: 8, // After discriminator
+            offset: 8, // After discriminator, user pubkey is first field
             bytes: userPubkey.toBase58(),
           },
         },
       ]) ?? [];
 
-      return userInfoAccounts.map((acc: any) => ({
-        marketAddress: acc.account.market?.toBase58() || '',
-        yesBalance: (acc.account.yesBalance?.toNumber() || 0) / 1e6,
-        noBalance: (acc.account.noBalance?.toNumber() || 0) / 1e6,
-        lpBalance: (acc.account.lpBalance?.toNumber() || 0) / 1e6,
-        realizedPnl: (acc.account.realizedPnl?.toNumber() || 0) / 1e6,
-      }));
+      // Create a map of market -> LP shares for quick lookup
+      const lpSharesMap = new Map<string, number>();
+      for (const lp of lpPositionAccounts) {
+        const marketAddr = lp.account.market?.toBase58();
+        const shares = (lp.account.lpShares?.toNumber() || 0) / 1e6;
+        if (marketAddr && shares > 0) {
+          lpSharesMap.set(marketAddr, shares);
+        }
+      }
+
+      const positions: UserPosition[] = [];
+
+      // Check each market for user's YES/NO token balances
+      for (const marketAccount of marketAccounts) {
+        const marketAddress = marketAccount.publicKey.toBase58();
+        const account = marketAccount.account;
+
+        const yesMint = account.yesTokenMint || account.yesMint;
+        const noMint = account.noTokenMint || account.noMint;
+
+        if (!yesMint || !noMint) continue;
+
+        // Get user's token account addresses
+        const userYesAta = getAssociatedTokenAddressSync(yesMint, userPubkey);
+        const userNoAta = getAssociatedTokenAddressSync(noMint, userPubkey);
+
+        // Fetch token account balances
+        let yesBalance = 0;
+        let noBalance = 0;
+
+        try {
+          const yesAccountInfo = await this.connection.getTokenAccountBalance(userYesAta);
+          yesBalance = parseFloat(yesAccountInfo.value.uiAmountString || '0');
+        } catch {
+          // Token account doesn't exist - user has no YES tokens
+        }
+
+        try {
+          const noAccountInfo = await this.connection.getTokenAccountBalance(userNoAta);
+          noBalance = parseFloat(noAccountInfo.value.uiAmountString || '0');
+        } catch {
+          // Token account doesn't exist - user has no NO tokens
+        }
+
+        // Get LP balance from the map
+        const lpBalance = lpSharesMap.get(marketAddress) || 0;
+
+        // Only include if user has any position in this market
+        if (yesBalance > 0 || noBalance > 0 || lpBalance > 0) {
+          positions.push({
+            marketAddress,
+            yesBalance,
+            noBalance,
+            lpBalance,
+            realizedPnl: 0, // PnL tracking would require historical data
+          });
+        }
+      }
+
+      return positions;
     } catch (error) {
       console.error('Failed to get user positions:', error);
       return [];
