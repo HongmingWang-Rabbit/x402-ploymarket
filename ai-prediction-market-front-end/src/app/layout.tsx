@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'AI Prediction Market',
-  description: 'Decentralized prediction market powered by AI and x402 payments',
+  title: 'PredictX - Decentralized Prediction Markets on Solana',
+  description: 'Trade on future events with multi-chain payments via X402 protocol. Powered by AI market generation and secured by blockchain technology.',
 };
 
 export default function RootLayout({
@@ -26,9 +26,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className="dark" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-50 dark:bg-gray-950 min-h-screen`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-950 min-h-screen`}
         suppressHydrationWarning
       >
         <Providers>
