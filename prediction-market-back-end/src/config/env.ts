@@ -17,7 +17,7 @@ const envSchema = z.object({
   X402_PAYMENT_ADDRESS: z.string(),
   X402_FACILITATOR_URL: z.string().default('https://x402.org/facilitator'),
 
-  // CORS
+  // CORS (comma-separated list of origins, e.g. "https://app.example.com,https://admin.example.com")
   CORS_ORIGIN: z.string().default('http://localhost:3000'),
 
   // Database (Neon)
