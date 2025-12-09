@@ -17,6 +17,7 @@ export const env = {
   SOLANA_RPC_URL: process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com',
   PROGRAM_ID: process.env.PROGRAM_ID || '',
   PUBLISHER_PRIVATE_KEY: process.env.PUBLISHER_PRIVATE_KEY || '',
+  TEAM_WALLET_ADDRESS: process.env.TEAM_WALLET_ADDRESS || '',
 
   // API
   API_BASE_URL: process.env.API_BASE_URL || 'http://localhost:3001',

@@ -7,3 +7,4 @@ export * from './auth.js';
 export * from './config.js';
 export * from './health.js';
 export * from './heartbeat.js';
+export * from './solana/client.js';

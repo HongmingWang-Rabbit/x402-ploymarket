@@ -8,9 +8,7 @@
  * Single instance to ensure transaction ordering.
  */
 
-import { Connection, Keypair, PublicKey } from '@solana/web3.js';
-import { AnchorProvider, Program, Wallet, BN } from '@coral-xyz/anchor';
-import bs58 from 'bs58';
+import { Keypair } from '@solana/web3.js';
 import {
   env,
   validateEnv,
@@ -27,17 +25,14 @@ import {
   recordSuccess,
   recordFailure,
   setIdle,
+  isValidPrivateKey,
+  getSolanaClient,
 } from './shared/index.js';
-import { PDA_SEEDS, USDC_DECIMALS } from '@x402/shared-types';
 
 // Override worker type
 process.env.WORKER_TYPE = 'publisher';
 
 const logger = createWorkerLogger('publisher');
-
-// Default market parameters
-const DEFAULT_B_PARAMETER = 500;
-const DEFAULT_INITIAL_LIQUIDITY = 100; // USDC
 
 /**
  * Get AI version from database config
@@ -70,64 +65,24 @@ async function getDraftMarket(draftMarketId: string) {
 }
 
 /**
- * Parse private key from env (supports both base58 and JSON array formats)
+ * Generate YES/NO token metadata URI (can be expanded with IPFS in future)
  */
-function parsePrivateKey(keyStr: string): Uint8Array | null {
-  try {
-    // Try JSON array format first: [1,2,3,...]
-    if (keyStr.trim().startsWith('[')) {
-      const arr = JSON.parse(keyStr);
-      if (Array.isArray(arr) && arr.length === 64) {
-        return new Uint8Array(arr);
-      }
-    }
-    // Try base58 format
-    const decoded = bs58.decode(keyStr);
-    if (decoded.length === 64) {
-      return decoded;
-    }
-    return null;
-  } catch {
-    return null;
-  }
+function generateMetadataUri(title: string, isYes: boolean): string {
+  // For now, return a placeholder URI - in production, upload to IPFS/Arweave
+  const type = isYes ? 'YES' : 'NO';
+  return `https://api.polymarket.com/metadata/${type}/${encodeURIComponent(title)}`;
 }
 
 /**
- * Check if the publisher private key is valid
+ * Generate token symbol from market title
  */
-function isValidPrivateKey(): boolean {
-  if (!env.PUBLISHER_PRIVATE_KEY) return false;
-  try {
-    const privateKeyBytes = parsePrivateKey(env.PUBLISHER_PRIVATE_KEY);
-    if (!privateKeyBytes) return false;
-    Keypair.fromSecretKey(privateKeyBytes);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Initialize Solana connection and program
- */
-function initializeSolana() {
-  const connection = new Connection(env.SOLANA_RPC_URL, 'confirmed');
-
-  // Load publisher keypair (supports both base58 and JSON array formats)
-  const privateKeyBytes = parsePrivateKey(env.PUBLISHER_PRIVATE_KEY);
-  if (!privateKeyBytes) {
-    throw new Error('Invalid PUBLISHER_PRIVATE_KEY format');
-  }
-  const keypair = Keypair.fromSecretKey(privateKeyBytes);
-  const wallet = new Wallet(keypair);
-
-  const provider = new AnchorProvider(connection, wallet, {
-    commitment: 'confirmed',
-  });
-
-  // Load program (you'd need to load the IDL here)
-  // For now, we'll just return the provider and connection
-  return { connection, provider, wallet, programId: new PublicKey(env.PROGRAM_ID) };
+function generateSymbol(title: string, isYes: boolean): string {
+  // Create a short symbol from the title
+  const prefix = title
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .substring(0, 6);
+  return `${prefix}${isYes ? 'Y' : 'N'}`;
 }
 
 /**
@@ -189,90 +144,101 @@ async function processPublish(message: MarketPublishMessage): Promise<void> {
     return;
   }
 
-  // Initialize Solana (only if NOT in dry run mode)
-  const { connection, provider, wallet, programId } = initializeSolana();
+  // Create market on-chain using Solana client
+  const solanaClient = getSolanaClient();
 
-  // Generate market keypair (deterministic from draft ID for idempotency)
-  // In production, you might want a different approach
-  const marketKeypair = Keypair.generate();
-  const marketAddress = marketKeypair.publicKey.toBase58();
+  // Prepare market parameters
+  const title = market.title as string;
+  const displayName = title.substring(0, 64); // Max 64 chars for display name
+  const yesSymbol = generateSymbol(title, true);
+  const noSymbol = generateSymbol(title, false);
+  const yesUri = generateMetadataUri(title, true);
+  const noUri = generateMetadataUri(title, false);
 
   logger.info(
-    { draftMarketId: message.draft_market_id, marketAddress },
+    { draftMarketId: message.draft_market_id, displayName, yesSymbol, noSymbol },
     'Creating market on-chain'
   );
 
-  // TODO: Implement actual on-chain market creation
-  // This requires the IDL and proper instruction building
-  // For now, we'll simulate success
+  try {
+    // Create market on-chain
+    const result = await solanaClient.createMarket({
+      displayName,
+      yesSymbol,
+      yesUri,
+      noSymbol,
+      noUri,
+      initialYesProb: 5000, // 50%
+    });
 
-  /*
-  // Example of what the on-chain call would look like:
-  const tx = await program.methods
-    .createMarket(
-      market.title,
-      new BN(Date.parse(market.resolution.expiry) / 1000),
-      new BN(DEFAULT_B_PARAMETER),
-      new BN(DEFAULT_INITIAL_LIQUIDITY * 10 ** USDC_DECIMALS),
-      50 // Initial probability 50%
-    )
-    .accounts({
-      market: marketKeypair.publicKey,
-      authority: wallet.publicKey,
-      // ... other accounts
-    })
-    .signers([marketKeypair])
-    .rpc();
-  */
+    logger.info(
+      {
+        draftMarketId: message.draft_market_id,
+        marketAddress: result.marketAddress,
+        yesTokenMint: result.yesTokenMint,
+        noTokenMint: result.noTokenMint,
+        txSignature: result.txSignature,
+      },
+      'Market created on-chain successfully'
+    );
 
-  // Simulated transaction signature
-  const txSignature = `sim_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-
-  // Update database with market address
-  await sql`
-    UPDATE ai_markets
-    SET
-      market_address = ${marketAddress},
-      status = 'active',
-      published_at = NOW()
-    WHERE id = ${message.draft_market_id}
-  `;
-
-  // Update proposal status if this came from a user proposal
-  if (market.source_proposal_id) {
+    // Update database with market address
     await sql`
-      UPDATE proposals
-      SET status = 'published'
-      WHERE id = ${market.source_proposal_id}
+      UPDATE ai_markets
+      SET
+        market_address = ${result.marketAddress},
+        yes_token_mint = ${result.yesTokenMint},
+        no_token_mint = ${result.noTokenMint},
+        status = 'active',
+        published_at = NOW()
+      WHERE id = ${message.draft_market_id}
     `;
+
+    // Update proposal status if this came from a user proposal
+    if (market.source_proposal_id) {
+      await sql`
+        UPDATE proposals
+        SET status = 'published'
+        WHERE id = ${market.source_proposal_id}
+      `;
+    }
+
+    // Log audit
+    await sql`
+      INSERT INTO audit_logs (action, entity_type, entity_id, actor, details, ai_version)
+      VALUES (
+        'market_published',
+        'market',
+        ${message.draft_market_id},
+        'publisher',
+        ${JSON.stringify({
+          market_address: result.marketAddress,
+          yes_token_mint: result.yesTokenMint,
+          no_token_mint: result.noTokenMint,
+          tx_signature: result.txSignature,
+          title: market.title,
+          expiry: market.resolution?.expiry,
+        })},
+        ${aiVersion}
+      )
+    `;
+
+    logger.info(
+      {
+        draftMarketId: message.draft_market_id,
+        marketAddress: result.marketAddress,
+        txSignature: result.txSignature,
+      },
+      'Market published successfully'
+    );
+  } catch (error) {
+    const err = error as Error;
+    logger.error(
+      { error: { message: err.message, stack: err.stack, name: err.name }, draftMarketId: message.draft_market_id },
+      'Failed to create market on-chain'
+    );
+    throw error;
   }
-
-  // Log audit
-  await sql`
-    INSERT INTO audit_logs (action, entity_type, entity_id, actor, details, ai_version)
-    VALUES (
-      'market_published',
-      'market',
-      ${message.draft_market_id},
-      'publisher',
-      ${JSON.stringify({
-        market_address: marketAddress,
-        tx_signature: txSignature,
-        title: market.title,
-        expiry: market.resolution?.expiry,
-      })},
-      ${aiVersion}
-    )
-  `;
-
-  logger.info(
-    {
-      draftMarketId: message.draft_market_id,
-      marketAddress,
-      txSignature,
-    },
-    'Market published successfully'
-  );
 }
 
 /**
@@ -291,6 +257,8 @@ async function main(): Promise<void> {
   if (!isValidPrivateKey()) {
     logger.warn('PUBLISHER_PRIVATE_KEY not set or invalid, running in DRY_RUN mode');
     process.env.DRY_RUN = 'true';
+  } else {
+    logger.info('PUBLISHER_PRIVATE_KEY validated, running in LIVE mode');
   }
 
   // Connect to services
