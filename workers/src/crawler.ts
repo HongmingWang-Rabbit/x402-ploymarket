@@ -56,7 +56,7 @@ interface RssFeed {
 async function getActiveFeeds(): Promise<RssFeed[]> {
   const sql = getDb();
   const result = await sql`
-    SELECT id, name, url, category, last_polled_at
+    SELECT id, name, url, category_hint AS category, last_polled_at
     FROM rss_feeds
     WHERE active = true
   `;
