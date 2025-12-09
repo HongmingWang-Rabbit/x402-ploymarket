@@ -10,7 +10,6 @@
 import crypto from 'crypto';
 import Parser from 'rss-parser';
 import {
-  env,
   validateEnv,
   createWorkerLogger,
   getDb,
@@ -31,8 +30,8 @@ process.env.WORKER_TYPE = 'crawler';
 
 const logger = createWorkerLogger('crawler');
 
-// RSS polling interval (15 minutes)
-const RSS_POLL_INTERVAL_MS = 15 * 60 * 1000;
+// RSS polling interval (configurable via env, default 1 hour for testing)
+const RSS_POLL_INTERVAL_MS = parseInt(process.env.RSS_POLL_INTERVAL_MINUTES || '60', 10) * 60 * 1000;
 
 // Parser instance
 const parser = new Parser({
