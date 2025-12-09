@@ -378,8 +378,8 @@ export async function adminWorkerRoutes(app: FastifyInstance) {
             ${messages_failed},
             ${current_queue_size ?? null},
             ${last_error ?? null},
-            ${last_error ? sql`NOW()` : sql`NULL`},
-            ${status === 'error' ? sql`consecutive_errors + 1` : 0},
+            ${last_error ? sql`NOW()` : null},
+            ${status === 'error' ? 1 : 0},
             ${hostname ?? null},
             ${pid ?? null}
           )
