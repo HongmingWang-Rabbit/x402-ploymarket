@@ -68,6 +68,7 @@ keys/
 !**/package.json
 !**/tsconfig.json
 !**/pnpm-workspace.yaml
+!workers/src/shared/solana/*.json
 
 # Test ledger
 test-ledger/
