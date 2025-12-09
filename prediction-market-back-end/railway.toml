@@ -1,0 +1,9 @@
+[build]
+dockerfilePath = "prediction-market-back-end/Dockerfile"
+watchPatterns = ["prediction-market-back-end/**", "packages/shared-types/**"]
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3

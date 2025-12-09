@@ -1,0 +1,7 @@
+[build]
+dockerfilePath = "workers/Dockerfile"
+watchPatterns = ["workers/**", "packages/shared-types/**"]
+
+[deploy]
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3

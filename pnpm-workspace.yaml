@@ -1,0 +1,5 @@
+packages:
+  - "packages/*"
+  - "ai-prediction-market-front-end"
+  - "prediction-market-back-end"
+  - "workers"
