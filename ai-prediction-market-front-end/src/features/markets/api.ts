@@ -3,54 +3,62 @@ import { getSolanaAdapter } from '@/lib/blockchain';
 import type { CreateMarketParams, MarketMetadata } from '@/types';
 import type { MarketWithMetadata } from './types';
 
-// Fetch metadata by market address from backend
-// Returns null for markets without linked metadata (404 is expected for old markets)
-async function fetchMetadataByMarketAddress(marketAddress: string): Promise<MarketMetadata | null> {
-  try {
-    const response = await apiClient.getMetadataByMarket(marketAddress);
-    if (response.success && response.data) {
-      return response.data;
-    }
-    // 404 is expected for markets without linked metadata - not an error
-    return null;
-  } catch {
-    // Network errors are silently ignored - metadata is optional
-    return null;
-  }
-}
-
-// Fetch markets from blockchain directly, with metadata from backend
+// Fetch markets from backend API (database-backed for fast loading)
 export async function fetchMarkets(limit = 10, offset = 0): Promise<{
   markets: MarketWithMetadata[];
   total: number;
 }> {
-  const adapter = getSolanaAdapter();
+  try {
+    // Use backend API which reads from database (fast)
+    const response = await apiClient.listMarkets(limit, offset);
 
+    if (response.success && response.data) {
+      // Backend already includes metadata in the response
+      const marketsWithMetadata: MarketWithMetadata[] = response.data.markets.map((market: any) => ({
+        ...market,
+        metadata: market.metadata || undefined,
+      }));
+
+      return {
+        markets: marketsWithMetadata,
+        total: response.data.total,
+      };
+    }
+  } catch (error) {
+    console.warn('Failed to fetch markets from backend, falling back to on-chain:', error);
+  }
+
+  // Fallback to on-chain if backend fails
+  const adapter = getSolanaAdapter();
   const [markets, total] = await Promise.all([
     adapter.getMarkets(limit, offset),
     adapter.getMarketsCount(),
   ]);
 
-  // Fetch metadata for all markets in parallel (by market address)
-  const marketsWithMetadata = await Promise.all(
-    markets.map(async (market): Promise<MarketWithMetadata> => {
-      const metadata = await fetchMetadataByMarketAddress(market.address);
-      return { ...market, metadata: metadata || undefined };
-    })
-  );
-
-  return { markets: marketsWithMetadata, total };
+  return { markets: markets.map((m) => ({ ...m })), total };
 }
 
-// Fetch single market with metadata
+// Fetch single market from backend (with on-chain enrichment for live data)
 export async function fetchMarket(address: string): Promise<MarketWithMetadata | null> {
+  try {
+    // Use backend API which merges database metadata with on-chain data
+    const response = await apiClient.getMarket(address);
+
+    if (response.success && response.data) {
+      const market = response.data as any;
+      return {
+        ...market,
+        metadata: market.metadata || undefined,
+      };
+    }
+  } catch (error) {
+    console.warn('Failed to fetch market from backend, falling back to on-chain:', error);
+  }
+
+  // Fallback to pure on-chain
   const adapter = getSolanaAdapter();
   const market = await adapter.getMarket(address);
-
-  if (!market) return null;
-
-  const metadata = await fetchMetadataByMarketAddress(address);
-  return { ...market, metadata: metadata || undefined };
+  return market ? { ...market } : null;
 }
 
 // Link metadata to market after creation
