@@ -31,6 +31,22 @@ export function errorHandler(
     });
   }
 
+  // JSON parsing errors
+  if (
+    error.statusCode === 400 ||
+    error.code === 'FST_ERR_CTP_INVALID_CONTENT_TYPE' ||
+    error.code === 'FST_ERR_CTP_INVALID_MEDIA_TYPE' ||
+    (error.message && error.message.includes('JSON'))
+  ) {
+    return reply.status(400).send({
+      success: false,
+      error: {
+        code: 'INVALID_JSON',
+        message: 'Invalid JSON in request body',
+      },
+    });
+  }
+
   // Unknown errors
   return reply.status(500).send({
     success: false,

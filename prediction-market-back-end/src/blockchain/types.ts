@@ -34,6 +34,21 @@ export interface CreateMarketParams {
   creatorAddress?: string;
 }
 
+export interface QuoteParams {
+  marketAddress: string;
+  tokenType: 'yes' | 'no';
+  amount: number;
+  direction: 'buy' | 'sell';
+}
+
+export interface QuoteResult {
+  inputAmount: number;
+  outputAmount: number;
+  price: number;
+  priceImpact: number;
+  fee: number;
+}
+
 export interface SwapParams {
   marketAddress: string;
   direction: 'buy' | 'sell';

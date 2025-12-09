@@ -178,7 +178,8 @@ export async function consumeQueue<T>(
 
       await handler(content, ack, nack);
     } catch (error) {
-      logger.error({ queue: queueName, error, retryCount }, 'Message processing failed');
+      const err = error as Error;
+      logger.error({ queue: queueName, error: { message: err.message, stack: err.stack, name: err.name }, retryCount }, 'Message processing failed');
 
       if (retryCount < RETRY_DELAYS.length) {
         // Schedule retry

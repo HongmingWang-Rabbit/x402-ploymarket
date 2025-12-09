@@ -91,6 +91,7 @@ export const LANDING_CONFIG = {
 // Navigation configuration
 export const NAV_LINKS = [
   { href: '/markets', label: 'Markets' },
+  { href: '/propose', label: 'Propose' },
   { href: '/portfolio', label: 'Portfolio' },
 ] as const;
 

@@ -4,6 +4,33 @@ import type { AdminPanelSection } from './types';
 // This is modular - add new items/sections here as needed
 export const adminPanelConfig: AdminPanelSection[] = [
   {
+    id: 'ai-moderation',
+    title: 'AI Moderation',
+    items: [
+      {
+        id: 'review-proposals',
+        title: 'Review Proposals',
+        description: 'Review and approve/reject AI-generated market proposals',
+        href: '/admin/proposals',
+        requireAdmin: true,
+      },
+      {
+        id: 'review-disputes',
+        title: 'Review Disputes',
+        description: 'Handle disputed market resolutions',
+        href: '/admin/disputes',
+        requireAdmin: true,
+      },
+      {
+        id: 'ai-config',
+        title: 'AI Configuration',
+        description: 'Manage AI model settings, rate limits, and categories',
+        href: '/admin/ai-config',
+        requireAdmin: true,
+      },
+    ],
+  },
+  {
     id: 'market-management',
     title: 'Market Management',
     items: [

@@ -14,7 +14,7 @@ import {
   createWorkerLogger,
   getDb,
   closeDb,
-  connectQueue,
+  initializeQueues,
   closeQueue,
   consumeQueue,
   publishDraftValidate,
@@ -50,7 +50,22 @@ async function getAIVersion(): Promise<string> {
   const result = await sql`
     SELECT value FROM ai_config WHERE key = 'ai_version'
   `;
-  return result[0]?.value ? JSON.parse(result[0].value) : 'v1.0';
+  // Value is stored as a plain string - return as-is
+  const value = result[0]?.value;
+  if (!value) return 'v1.0';
+  // If value is already a string, return it directly
+  if (typeof value === 'string') {
+    // Check if it's a JSON-encoded string (starts with quote)
+    if (value.startsWith('"')) {
+      try {
+        return JSON.parse(value);
+      } catch {
+        return value;
+      }
+    }
+    return value;
+  }
+  return String(value);
 }
 
 /**
@@ -166,9 +181,9 @@ async function main(): Promise<void> {
   // Validate required environment variables
   validateEnv(['DATABASE_URL', 'RABBITMQ_URL', 'OPENAI_API_KEY']);
 
-  // Connect to services
-  await connectQueue();
-  logger.info('Connected to RabbitMQ');
+  // Connect to services and initialize queues
+  await initializeQueues();
+  logger.info('Connected to RabbitMQ and queues initialized');
 
   // Test database connection
   const sql = getDb();
@@ -183,7 +198,11 @@ async function main(): Promise<void> {
         await processCandidate(message);
         ack();
       } catch (error) {
-        logger.error({ error, candidateId: message.candidate_id }, 'Failed to process candidate');
+        const err = error as Error;
+        logger.error({
+          error: { message: err.message, stack: err.stack, name: err.name },
+          candidateId: message.candidate_id
+        }, 'Failed to process candidate');
         // Let the queue handle retry logic
         throw error;
       }

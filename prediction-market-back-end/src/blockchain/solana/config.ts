@@ -26,4 +26,22 @@ export const solanaConfig = {
     WHITELIST: 'whitelist',
     LP_POSITION: 'lp_position',
   } as const,
+
+  // Token decimals
+  decimals: {
+    USDC: 6,
+    OUTCOME_TOKEN: 6,
+  } as const,
+
+  // Trading parameters
+  trading: {
+    /** Default slippage tolerance in percentage (e.g., 5 = 5%) */
+    DEFAULT_SLIPPAGE_PERCENT: 5,
+    /** Trading fee rate (e.g., 0.003 = 0.3%) */
+    FEE_RATE: 0.003,
+    /** Default LMSR b parameter for price calculations */
+    DEFAULT_B_PARAMETER: 500,
+    /** Basis points multiplier for slippage conversion */
+    SLIPPAGE_BASIS_POINTS_MULTIPLIER: 100,
+  } as const,
 };

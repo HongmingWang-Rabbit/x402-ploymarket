@@ -33,4 +33,20 @@ export async function liquidityRoutes(app: FastifyInstance) {
       },
     },
   }, withdrawLiquidityHandler);
+
+  // POST /api/liquidity/remove - Alias for /withdraw
+  app.post('/remove', {
+    schema: {
+      description: 'Remove liquidity from a prediction market (alias for /withdraw)',
+      body: {
+        type: 'object',
+        required: ['marketAddress', 'lpAmount', 'userAddress'],
+        properties: {
+          marketAddress: { type: 'string' },
+          lpAmount: { type: 'number', minimum: 0 },
+          userAddress: { type: 'string' },
+        },
+      },
+    },
+  }, withdrawLiquidityHandler);
 }

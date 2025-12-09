@@ -16,6 +16,7 @@ export interface NewsRawMessage {
   title: string;
   content: string;
   published_at: string;
+  category_hint?: string;
 }
 
 /**

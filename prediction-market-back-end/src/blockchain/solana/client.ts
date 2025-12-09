@@ -16,6 +16,8 @@ import type {
   MintRedeemParams,
   AddLiquidityParams,
   WithdrawLiquidityParams,
+  QuoteParams,
+  QuoteResult,
 } from '../types.js';
 
 // Re-export for consumers
@@ -144,6 +146,75 @@ export class SolanaClient {
   }
 
   // Trading operations
+  async getQuote(params: QuoteParams): Promise<QuoteResult> {
+    try {
+      const marketPubkey = new PublicKey(params.marketAddress);
+      const account = await (this.program.account as any).market.fetch(marketPubkey);
+
+      if (!account) {
+        throw new Error('Market not found');
+      }
+
+      const { decimals, trading } = solanaConfig;
+      const decimalMultiplier = Math.pow(10, decimals.USDC);
+
+      // Get current market state for LMSR calculation
+      const b = account.bParameter?.toNumber() || trading.DEFAULT_B_PARAMETER;
+      const qYes = account.qYes?.toNumber() || 0;
+      const qNo = account.qNo?.toNumber() || 0;
+
+      const isYes = params.tokenType === 'yes';
+      const isBuy = params.direction === 'buy';
+      const amount = params.amount;
+
+      // Calculate current cost function: C(q) = b * ln(e^(qYes/b) + e^(qNo/b))
+      const currentCost = b * Math.log(Math.exp(qYes / b) + Math.exp(qNo / b));
+
+      // Calculate new quantities after trade
+      let newQYes = qYes;
+      let newQNo = qNo;
+      const amountScaled = amount * decimalMultiplier;
+
+      if (isBuy) {
+        if (isYes) newQYes += amountScaled;
+        else newQNo += amountScaled;
+      } else {
+        if (isYes) newQYes -= amountScaled;
+        else newQNo -= amountScaled;
+      }
+
+      // Calculate new cost
+      const newCost = b * Math.log(Math.exp(newQYes / b) + Math.exp(newQNo / b));
+
+      // Price impact is the difference in costs
+      const costDiff = Math.abs(newCost - currentCost);
+
+      // Calculate price before and after
+      const priceBefore = isYes
+        ? Math.exp(qYes / b) / (Math.exp(qYes / b) + Math.exp(qNo / b))
+        : Math.exp(qNo / b) / (Math.exp(qYes / b) + Math.exp(qNo / b));
+
+      const priceAfter = isYes
+        ? Math.exp(newQYes / b) / (Math.exp(newQYes / b) + Math.exp(newQNo / b))
+        : Math.exp(newQNo / b) / (Math.exp(newQYes / b) + Math.exp(newQNo / b));
+
+      const priceImpact = Math.abs(priceAfter - priceBefore) / priceBefore * 100;
+
+      const fee = amount * trading.FEE_RATE;
+
+      return {
+        inputAmount: amount,
+        outputAmount: isBuy ? amount - fee : costDiff / decimalMultiplier - fee,
+        price: priceBefore,
+        priceImpact,
+        fee,
+      };
+    } catch (error) {
+      logger.error({ error, params }, 'Failed to get quote');
+      throw error;
+    }
+  }
+
   async swap(params: SwapParams): Promise<TransactionResult> {
     try {
       const marketPubkey = new PublicKey(params.marketAddress);
@@ -152,9 +223,12 @@ export class SolanaClient {
       const isBuy = params.direction === 'buy';
       const isYes = params.tokenType === 'yes';
 
+      const { decimals, trading } = solanaConfig;
+      const decimalMultiplier = Math.pow(10, decimals.USDC);
+
       // Calculate with slippage
-      const amountBN = new BN(params.amount * 1e6); // Convert to USDC decimals
-      const slippageBN = new BN(params.slippage * 100); // Convert to basis points
+      const amountBN = new BN(params.amount * decimalMultiplier);
+      const slippageBN = new BN(params.slippage * trading.SLIPPAGE_BASIS_POINTS_MULTIPLIER);
 
       const signature = await (this.program.methods as any)
         .swap(amountBN, isBuy, isYes, slippageBN)
@@ -179,7 +253,8 @@ export class SolanaClient {
     try {
       const marketPubkey = new PublicKey(params.marketAddress);
       const userPubkey = new PublicKey(params.userAddress);
-      const amountBN = new BN(params.amount * 1e6);
+      const decimalMultiplier = Math.pow(10, solanaConfig.decimals.USDC);
+      const amountBN = new BN(params.amount * decimalMultiplier);
 
       const signature = await (this.program.methods as any)
         .mintCompleteSet(amountBN)
@@ -204,7 +279,8 @@ export class SolanaClient {
     try {
       const marketPubkey = new PublicKey(params.marketAddress);
       const userPubkey = new PublicKey(params.userAddress);
-      const amountBN = new BN(params.amount * 1e6);
+      const decimalMultiplier = Math.pow(10, solanaConfig.decimals.USDC);
+      const amountBN = new BN(params.amount * decimalMultiplier);
 
       const signature = await (this.program.methods as any)
         .redeemCompleteSet(amountBN)
@@ -230,7 +306,8 @@ export class SolanaClient {
     try {
       const marketPubkey = new PublicKey(params.marketAddress);
       const userPubkey = new PublicKey(params.userAddress);
-      const amountBN = new BN(params.amount * 1e6);
+      const decimalMultiplier = Math.pow(10, solanaConfig.decimals.USDC);
+      const amountBN = new BN(params.amount * decimalMultiplier);
 
       const signature = await (this.program.methods as any)
         .addLiquidity(amountBN)
@@ -255,7 +332,8 @@ export class SolanaClient {
     try {
       const marketPubkey = new PublicKey(params.marketAddress);
       const userPubkey = new PublicKey(params.userAddress);
-      const lpAmountBN = new BN(params.lpAmount * 1e6);
+      const decimalMultiplier = Math.pow(10, solanaConfig.decimals.USDC);
+      const lpAmountBN = new BN(params.lpAmount * decimalMultiplier);
 
       const signature = await (this.program.methods as any)
         .withdrawLiquidity(lpAmountBN)
@@ -279,6 +357,7 @@ export class SolanaClient {
   // Helper to format market data
   private formatMarket(accountData: { publicKey: PublicKey; account: any }): Market {
     const { publicKey, account } = accountData;
+    const decimalMultiplier = Math.pow(10, solanaConfig.decimals.USDC);
 
     return {
       address: publicKey.toBase58(),
@@ -290,7 +369,7 @@ export class SolanaClient {
       collateralVault: account.collateralVault?.toBase58() || '',
       status: this.getMarketStatus(account.status),
       bParameter: account.bParameter?.toNumber() || 0,
-      totalLiquidity: (account.totalLiquidity?.toNumber() || 0) / 1e6,
+      totalLiquidity: (account.totalLiquidity?.toNumber() || 0) / decimalMultiplier,
       yesPrice: this.calculatePrice(account, 'yes'),
       noPrice: this.calculatePrice(account, 'no'),
       createdAt: account.createdAt?.toNumber() || Date.now(),

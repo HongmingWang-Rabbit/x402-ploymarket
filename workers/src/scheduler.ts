@@ -72,11 +72,10 @@ async function checkMarketsForFinalization(): Promise<void> {
     const markets = await sql`
       SELECT m.id, m.market_address
       FROM ai_markets m
-      LEFT JOIN disputes d ON d.resolution_id = (
-        SELECT r.id FROM resolutions r WHERE r.market_id = m.id ORDER BY r.created_at DESC LIMIT 1
-      )
+      INNER JOIN resolutions r ON r.market_id = m.id
+      LEFT JOIN disputes d ON d.resolution_id = r.id
       WHERE m.status = 'resolved'
-        AND m.dispute_window_ends < NOW()
+        AND r.dispute_window_ends < NOW()
         AND (d.id IS NULL OR d.status IN ('upheld', 'overturned'))
     `;
 

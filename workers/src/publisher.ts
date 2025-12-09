@@ -17,7 +17,7 @@ import {
   createWorkerLogger,
   getDb,
   closeDb,
-  connectQueue,
+  initializeQueues,
   closeQueue,
   consumeQueue,
   QUEUE_NAMES,
@@ -42,7 +42,13 @@ async function getAIVersion(): Promise<string> {
   const result = await sql`
     SELECT value FROM ai_config WHERE key = 'ai_version'
   `;
-  return result[0]?.value ? JSON.parse(result[0].value) : 'v1.0';
+  // Value is stored as a plain string or JSON - handle both cases
+  if (!result[0]?.value) return 'v1.0';
+  try {
+    return JSON.parse(result[0].value);
+  } catch {
+    return result[0].value;
+  }
 }
 
 /**
@@ -59,13 +65,54 @@ async function getDraftMarket(draftMarketId: string) {
 }
 
 /**
+ * Parse private key from env (supports both base58 and JSON array formats)
+ */
+function parsePrivateKey(keyStr: string): Uint8Array | null {
+  try {
+    // Try JSON array format first: [1,2,3,...]
+    if (keyStr.trim().startsWith('[')) {
+      const arr = JSON.parse(keyStr);
+      if (Array.isArray(arr) && arr.length === 64) {
+        return new Uint8Array(arr);
+      }
+    }
+    // Try base58 format
+    const decoded = bs58.decode(keyStr);
+    if (decoded.length === 64) {
+      return decoded;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Check if the publisher private key is valid
+ */
+function isValidPrivateKey(): boolean {
+  if (!env.PUBLISHER_PRIVATE_KEY) return false;
+  try {
+    const privateKeyBytes = parsePrivateKey(env.PUBLISHER_PRIVATE_KEY);
+    if (!privateKeyBytes) return false;
+    Keypair.fromSecretKey(privateKeyBytes);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Initialize Solana connection and program
  */
 function initializeSolana() {
   const connection = new Connection(env.SOLANA_RPC_URL, 'confirmed');
 
-  // Load publisher keypair
-  const privateKeyBytes = bs58.decode(env.PUBLISHER_PRIVATE_KEY);
+  // Load publisher keypair (supports both base58 and JSON array formats)
+  const privateKeyBytes = parsePrivateKey(env.PUBLISHER_PRIVATE_KEY);
+  if (!privateKeyBytes) {
+    throw new Error('Invalid PUBLISHER_PRIVATE_KEY format');
+  }
   const keypair = Keypair.fromSecretKey(privateKeyBytes);
   const wallet = new Wallet(keypair);
 
@@ -106,21 +153,12 @@ async function processPublish(message: MarketPublishMessage): Promise<void> {
     return;
   }
 
-  // Initialize Solana
-  const { connection, provider, wallet, programId } = initializeSolana();
-
-  // Generate market keypair (deterministic from draft ID for idempotency)
-  // In production, you might want a different approach
-  const marketKeypair = Keypair.generate();
-  const marketAddress = marketKeypair.publicKey.toBase58();
-
-  logger.info(
-    { draftMarketId: message.draft_market_id, marketAddress },
-    'Creating market on-chain'
-  );
-
-  // Check if in dry run mode
+  // Check if in dry run mode (BEFORE initializing Solana)
   if (env.DRY_RUN) {
+    // Generate a mock market address for dry run
+    const mockMarketKeypair = Keypair.generate();
+    const marketAddress = mockMarketKeypair.publicKey.toBase58();
+
     logger.info({ marketAddress }, 'DRY RUN: Would create market on-chain');
 
     // Update database with mock address
@@ -145,6 +183,19 @@ async function processPublish(message: MarketPublishMessage): Promise<void> {
     logger.info({ draftMarketId: message.draft_market_id, marketAddress }, 'Market published (dry run)');
     return;
   }
+
+  // Initialize Solana (only if NOT in dry run mode)
+  const { connection, provider, wallet, programId } = initializeSolana();
+
+  // Generate market keypair (deterministic from draft ID for idempotency)
+  // In production, you might want a different approach
+  const marketKeypair = Keypair.generate();
+  const marketAddress = marketKeypair.publicKey.toBase58();
+
+  logger.info(
+    { draftMarketId: message.draft_market_id, marketAddress },
+    'Creating market on-chain'
+  );
 
   // TODO: Implement actual on-chain market creation
   // This requires the IDL and proper instruction building
@@ -228,15 +279,15 @@ async function main(): Promise<void> {
   // Validate required environment variables
   validateEnv(['DATABASE_URL', 'RABBITMQ_URL', 'SOLANA_RPC_URL', 'PROGRAM_ID']);
 
-  // Warn if no private key (dry run mode)
-  if (!env.PUBLISHER_PRIVATE_KEY) {
-    logger.warn('PUBLISHER_PRIVATE_KEY not set, running in DRY_RUN mode');
+  // Check if private key is valid, otherwise use dry run mode
+  if (!isValidPrivateKey()) {
+    logger.warn('PUBLISHER_PRIVATE_KEY not set or invalid, running in DRY_RUN mode');
     process.env.DRY_RUN = 'true';
   }
 
   // Connect to services
-  await connectQueue();
-  logger.info('Connected to RabbitMQ');
+  await initializeQueues();
+  logger.info('Connected to RabbitMQ and queues initialized');
 
   // Test database connection
   const sql = getDb();
