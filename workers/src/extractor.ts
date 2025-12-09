@@ -181,7 +181,7 @@ async function saveCandidate(candidate: {
     VALUES (
       ${candidate.id},
       ${candidate.newsId},
-      ${JSON.stringify(candidate.entities)},
+      ${candidate.entities},
       ${candidate.eventType},
       ${candidate.categoryHint},
       ${candidate.relevantText},
