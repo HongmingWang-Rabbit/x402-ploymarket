@@ -5,27 +5,24 @@ import { Button } from '@/components/ui';
 import { LANDING_CONFIG } from './constants';
 import { useState, useEffect } from 'react';
 
-const generateData = (numPoints = 20) => {
-  let y = 50 + Math.random() * 60;
-  const data = [];
-  for (let i = 0; i < numPoints; i++) {
-    y += Math.random() * 20 - 10;
-    y = Math.max(10, Math.min(190, y));
-    data.push({ x: i * 20, y });
-  }
-  return data;
-};
+// Static initial data to avoid hydration mismatch
+const INITIAL_CHART_DATA = [
+  { x: 0, y: 100 }, { x: 20, y: 95 }, { x: 40, y: 105 }, { x: 60, y: 90 },
+  { x: 80, y: 110 }, { x: 100, y: 85 }, { x: 120, y: 115 }, { x: 140, y: 80 },
+  { x: 160, y: 120 }, { x: 180, y: 75 }, { x: 200, y: 125 }, { x: 220, y: 70 },
+  { x: 240, y: 130 }, { x: 260, y: 65 }, { x: 280, y: 135 }, { x: 300, y: 60 },
+  { x: 320, y: 140 }, { x: 340, y: 55 }, { x: 360, y: 145 }, { x: 380, y: 50 },
+];
 
 function PlatformGrowthChart() {
-  const [data, setData] = useState(generateData());
+  const [data, setData] = useState(INITIAL_CHART_DATA);
 
   useEffect(() => {
     const interval = setInterval(() => {
       setData((prevData) => {
-        const newDataPoint = {
-          x: (prevData.length - 1) * 20,
-          y: Math.max(10, Math.min(190, prevData[prevData.length - 1].y + Math.random() * 20 - 10)),
-        };
+        const lastY = prevData[prevData.length - 1].y;
+        const newY = Math.max(10, Math.min(190, lastY + Math.random() * 20 - 10));
+        const newDataPoint = { x: 380, y: newY };
         const updatedData = [...prevData.slice(1), newDataPoint];
         return updatedData.map((p, i) => ({ ...p, x: i * 20 }));
       });
