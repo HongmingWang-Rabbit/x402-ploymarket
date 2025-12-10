@@ -1,14 +1,15 @@
 /**
  * Admin Authentication Middleware
  *
- * Validates admin JWT tokens and checks admin roles
+ * Validates admin wallet addresses and checks admin roles
  */
 
 import { FastifyRequest, FastifyReply } from 'fastify';
+import { config } from '../config/index.js';
 
-// Admin wallet addresses (should be in environment variables in production)
-const ADMIN_ADDRESSES = process.env.ADMIN_ADDRESSES?.split(',') || [];
-const SUPER_ADMIN_ADDRESSES = process.env.SUPER_ADMIN_ADDRESSES?.split(',') || [];
+// Use centralized config for admin addresses
+const ADMIN_ADDRESSES = config.auth.adminAddresses;
+const SUPER_ADMIN_ADDRESSES = config.auth.superAdminAddresses;
 
 export type AdminRole = 'admin' | 'super_admin';
 

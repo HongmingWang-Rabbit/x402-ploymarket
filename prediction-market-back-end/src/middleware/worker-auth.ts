@@ -7,8 +7,9 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import jwt from 'jsonwebtoken';
 import { getDb } from '../db/index.js';
+import { config } from '../config/index.js';
 
-const JWT_SECRET = process.env.INTERNAL_JWT_SECRET || 'dev-worker-jwt-secret';
+const JWT_SECRET = config.auth.jwtSecret;
 
 export type WorkerType =
   | 'crawler'

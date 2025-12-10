@@ -35,8 +35,12 @@ const envSchema = z.object({
   RATE_LIMIT_PROPOSE_PER_HOUR: z.coerce.number().default(20),
   RATE_LIMIT_PROPOSE_PER_DAY: z.coerce.number().default(50),
 
-  // Internal JWT for workers
-  INTERNAL_JWT_SECRET: z.string().optional(),
+  // Internal JWT for workers (required for security)
+  INTERNAL_JWT_SECRET: z.string().min(32),
+
+  // Admin wallet addresses (comma-separated)
+  ADMIN_ADDRESSES: z.string().optional(),
+  SUPER_ADMIN_ADDRESSES: z.string().optional(),
 });
 
 const parseEnv = () => {

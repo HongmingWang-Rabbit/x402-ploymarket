@@ -3,113 +3,132 @@
 export const LANDING_CONFIG = {
   // Brand
   brand: {
-    name: 'PredictX',
-    tagline: 'Decentralized Prediction Markets on Solana',
+    name: "PredictX",
+    tagline: "Decentralized Prediction Markets on Solana",
   },
 
   // Hero section
   hero: {
-    badge: 'AI-Powered Market Generation',
+    badge: "AI-Powered Market Generation",
     title: {
-      line1: 'Decentralized',
-      highlight1: 'Prediction',
-      highlight2: 'Markets',
-      line2: 'on Solana',
+      line1: "Decentralized",
+      highlight1: "Prediction",
+      highlight2: "Markets",
+      line2: "on Solana",
     },
     description:
-      'Trade on future events with multi-chain payments via X402 protocol. Powered by AI market generation and secured by blockchain technology.',
-    primaryCta: 'Start Trading',
-    secondaryCta: 'View Markets',
+      "Trade on future events with multi-chain payments. Powered by AI market generation and secured by blockchain technology.",
+    primaryCta: "Start Trading",
+    secondaryCta: "View Markets",
   },
 
   // Features
   features: [
     {
-      id: 'solana',
-      title: 'Solana Blockchain',
+      id: "solana",
+      title: "Solana Blockchain",
       description:
-        'Lightning-fast transactions with minimal fees on the Solana network for optimal trading experience.',
-      iconType: 'solana' as const,
+        "Lightning-fast transactions with minimal fees on the Solana network for optimal trading experience.",
+      iconType: "solana" as const,
     },
     {
-      id: 'x402',
-      title: 'X402 Multi-Chain',
-      description:
-        'Seamless cross-chain payments and interactions through the innovative X402 protocol.',
-      iconType: 'x402' as const,
+      id: "x402",
+      title: "Multi-Chain",
+      description: "Seamless cross-chain payments and interactions",
+      iconType: "x402" as const,
     },
     {
-      id: 'ai',
-      title: 'AI Market Generation',
+      id: "ai",
+      title: "AI Market Generation",
       description:
-        'Intelligent algorithms create and curate prediction markets based on real-world events and trends.',
-      iconType: 'ai' as const,
+        "Intelligent algorithms create and curate prediction markets based on real-world events and trends.",
+      iconType: "ai" as const,
     },
   ],
 
   // Stats (placeholder values - should be fetched from API in production)
   stats: [
-    { id: 'volume', value: '$47.2M', label: 'Total Volume', colorClass: 'text-purple-400' },
-    { id: 'traders', value: '12,847', label: 'Active Traders', colorClass: 'text-blue-400' },
-    { id: 'markets', value: '234', label: 'Active Markets', colorClass: 'text-white' },
-    { id: 'uptime', value: '98.7%', label: 'Uptime', colorClass: 'text-green-400' },
+    {
+      id: "volume",
+      value: "$47.2M",
+      label: "Total Volume",
+      colorClass: "text-purple-400",
+    },
+    {
+      id: "traders",
+      value: "12,847",
+      label: "Active Traders",
+      colorClass: "text-blue-400",
+    },
+    {
+      id: "markets",
+      value: "234",
+      label: "Active Markets",
+      colorClass: "text-white",
+    },
+    {
+      id: "uptime",
+      value: "98.7%",
+      label: "Uptime",
+      colorClass: "text-green-400",
+    },
   ],
 
   // CTA section
   cta: {
-    title: 'Ready to Start Predicting?',
+    title: "Ready to Start Predicting?",
     description:
-      'Join thousands of traders making predictions on real-world events with cutting-edge blockchain technology.',
-    primaryButton: 'Connect Wallet & Trade',
-    secondaryButton: 'Learn More',
+      "Join thousands of traders making predictions on real-world events with cutting-edge blockchain technology.",
+    primaryButton: "Connect Wallet & Trade",
+    secondaryButton: "Learn More",
   },
 
   // Footer
   footer: {
     sections: {
       platform: [
-        { label: 'Markets', href: '/markets' },
-        { label: 'Analytics', href: '/markets' },
-        { label: 'Leaderboard', href: '/markets' },
-        { label: 'API', href: '/markets' },
+        { label: "Markets", href: "/markets" },
+        { label: "Analytics", href: "/markets" },
+        { label: "Leaderboard", href: "/markets" },
+        { label: "API", href: "/markets" },
       ],
       support: [
-        { label: 'Documentation', href: '#' },
-        { label: 'Help Center', href: '#' },
-        { label: 'Contact', href: '#' },
-        { label: 'Bug Report', href: '#' },
+        { label: "Documentation", href: "#" },
+        { label: "Help Center", href: "#" },
+        { label: "Contact", href: "#" },
+        { label: "Bug Report", href: "#" },
       ],
     },
     social: {
-      twitter: 'https://twitter.com',
-      discord: 'https://discord.com',
-      github: 'https://github.com',
+      twitter: "https://twitter.com",
+      discord: "https://discord.com",
+      github: "https://github.com",
     },
   },
 } as const;
 
 // Navigation configuration
 export const NAV_LINKS = [
-  { href: '/markets', label: 'Markets' },
-  { href: '/propose', label: 'Propose' },
-  { href: '/portfolio', label: 'Portfolio' },
+  { href: "/markets", label: "Markets" },
+  { href: "/propose", label: "Propose" },
+  { href: "/portfolio", label: "Portfolio" },
 ] as const;
 
 // Animation background configuration
 export const ANIMATION_CONFIG = {
   // Colors
   colors: {
-    background: 'rgb(3, 7, 18)',
+    background: "rgb(3, 7, 18)",
     purple: {
-      solid: 'rgba(167, 139, 250,',
-      base: 'rgba(139, 92, 246,',
+      solid: "rgba(167, 139, 250,",
+      base: "rgba(139, 92, 246,",
     },
     blue: {
-      solid: 'rgba(96, 165, 250,',
-      base: 'rgba(59, 130, 246,',
+      solid: "rgba(96, 165, 250,",
+      base: "rgba(59, 130, 246,",
     },
     green: {
-      solid: 'rgba(52, 211, 153,',
+      solid: "rgba(52, 211, 153,",
     },
   },
 
@@ -134,7 +153,7 @@ export const ANIMATION_CONFIG = {
   binaryStreams: {
     count: 15,
     charsPerStream: 30,
-    opacity: { min: 0.15, max: 0.40 },
+    opacity: { min: 0.15, max: 0.4 },
     speed: { min: 0.15, max: 0.55 },
     fontSize: 12,
   },

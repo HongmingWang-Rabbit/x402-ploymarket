@@ -18,7 +18,7 @@ export async function v1Routes(app: FastifyInstance) {
   // Disputes routes
   await app.register(disputesRoutes, { prefix: '/disputes' });
 
-  // Admin routes (should add auth middleware in production)
+  // Admin routes (protected by adminAuthMiddleware)
   await app.register(adminRoutes, { prefix: '/admin' });
 
   // Worker routes (internal, require worker JWT)

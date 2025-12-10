@@ -21,6 +21,12 @@ export const config = {
   cors: {
     origin: env.CORS_ORIGIN,
   },
+
+  auth: {
+    jwtSecret: env.INTERNAL_JWT_SECRET,
+    adminAddresses: env.ADMIN_ADDRESSES?.split(',').map((a) => a.trim()).filter(Boolean) || [],
+    superAdminAddresses: env.SUPER_ADMIN_ADDRESSES?.split(',').map((a) => a.trim()).filter(Boolean) || [],
+  },
 } as const;
 
 export { env };

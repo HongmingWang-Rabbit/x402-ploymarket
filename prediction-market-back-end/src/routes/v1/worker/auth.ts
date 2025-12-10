@@ -10,8 +10,9 @@ import { getDb } from '../../../db/index.js';
 import { createHash, randomUUID } from 'crypto';
 import jwt from 'jsonwebtoken';
 import { logger } from '../../../utils/logger.js';
+import { config } from '../../../config/index.js';
 
-const JWT_SECRET = process.env.INTERNAL_JWT_SECRET || 'dev-secret-change-in-production';
+const JWT_SECRET = config.auth.jwtSecret;
 const TOKEN_EXPIRY = '15m';
 
 const authSchema = z.object({

@@ -4,8 +4,12 @@ import { adminDisputeRoutes } from './disputes.js';
 import { adminIngestRoutes } from './ingest.js';
 import { adminAiConfigRoutes } from './ai-config.js';
 import { adminWorkerRoutes } from './workers.js';
+import { adminAuthMiddleware } from '../../../middleware/admin-auth.js';
 
 export async function adminRoutes(app: FastifyInstance) {
+  // Apply admin authentication to all routes in this plugin
+  app.addHook('preHandler', adminAuthMiddleware);
+
   // Admin proposal review routes
   await app.register(adminProposalRoutes, { prefix: '/proposals' });
 
