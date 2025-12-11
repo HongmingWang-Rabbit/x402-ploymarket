@@ -23,6 +23,7 @@ import {
   recordSuccess,
   recordFailure,
   setIdle,
+  canAutoPublish,
 } from './shared/index.js';
 
 // Override worker type
@@ -222,6 +223,20 @@ async function processFeed(feed: RssFeed): Promise<number> {
  */
 async function pollAllFeeds(): Promise<void> {
   logger.info('Starting RSS polling cycle');
+
+  // Check if auto-publish rate limit is already hit
+  // If so, skip crawling to save resources (no point crawling if we can't publish)
+  const rateLimit = await canAutoPublish();
+  if (!rateLimit.allowed) {
+    logger.info(
+      {
+        currentCount: rateLimit.currentCount,
+        limit: rateLimit.limit,
+      },
+      'Auto-publish rate limit reached, skipping RSS polling cycle to save resources'
+    );
+    return;
+  }
 
   const feeds = await getActiveFeeds();
 

@@ -16,6 +16,7 @@ interface AIConfig {
     propose_per_day: number;
     dispute_per_hour: number;
     dispute_per_day: number;
+    auto_publish_per_hour: number;
   };
   dispute_window_hours: number;
   max_retries: number;
@@ -256,6 +257,29 @@ export default function AdminAIConfigPage() {
         {/* Rate Limits */}
         <section className="p-6 bg-gray-800/50 border border-gray-700 rounded-lg">
           <h2 className="text-lg font-semibold text-white mb-4">Rate Limits</h2>
+
+          {/* AI Auto-Publish Limit - Highlighted */}
+          <div className="mb-4 p-4 bg-blue-900/30 border border-blue-700 rounded-lg">
+            <label className="block text-sm font-medium text-blue-300 mb-1">
+              AI Auto-Publish per Hour
+            </label>
+            <div className="flex items-center gap-3">
+              <input
+                type="number"
+                min="0"
+                value={formData.rate_limits?.auto_publish_per_hour ?? config.rate_limits.auto_publish_per_hour ?? 3}
+                onChange={(e) => handleRateLimitChange('auto_publish_per_hour', parseInt(e.target.value))}
+                className="w-24 px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+              />
+              <span className="text-gray-400">markets/hour</span>
+            </div>
+            <p className="text-xs text-gray-400 mt-2">
+              Maximum AI-generated markets published per hour. Set to 0 to disable auto-publishing.
+              User proposals are not affected by this limit.
+            </p>
+          </div>
+
+          <h3 className="text-sm font-medium text-gray-300 mb-3">User Rate Limits</h3>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm text-gray-400 mb-1">Proposals per minute</label>

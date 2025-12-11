@@ -18,6 +18,7 @@ export interface AIConfig {
     propose_per_day: number;
     dispute_per_hour: number;
     dispute_per_day: number;
+    auto_publish_per_hour: number; // Limit for AI-generated markets (not user proposals)
   };
   dispute_window_hours: number;
   max_retries: number;
@@ -35,6 +36,7 @@ const DEFAULT_CONFIG: AIConfig = {
     propose_per_day: 50,
     dispute_per_hour: 3,
     dispute_per_day: 10,
+    auto_publish_per_hour: 3, // Max AI-generated markets per hour (not user proposals)
   },
   dispute_window_hours: 24,
   max_retries: 3,
@@ -157,4 +159,49 @@ export async function getDisputeWindowHours(): Promise<number> {
 export async function isValidCategory(category: string): Promise<boolean> {
   const categories = await getConfigValue('categories');
   return categories.includes(category);
+}
+
+/**
+ * Get the number of auto-published markets in the last hour
+ * (markets where source_proposal_id is NULL, meaning AI-generated not user-proposed)
+ */
+export async function getAutoPublishCountInLastHour(): Promise<number> {
+  const sql = getDb();
+  const result = await sql`
+    SELECT COUNT(*) as count
+    FROM ai_markets
+    WHERE source_proposal_id IS NULL
+      AND published_at >= NOW() - INTERVAL '1 hour'
+      AND status = 'active'
+  `;
+  return parseInt(result[0]?.count || '0', 10);
+}
+
+/**
+ * Get the auto-publish rate limit from config
+ */
+export async function getAutoPublishRateLimit(): Promise<number> {
+  const config = await getConfig();
+  return config.rate_limits.auto_publish_per_hour;
+}
+
+/**
+ * Check if we can auto-publish a new market (not from user proposal)
+ * Returns { allowed: boolean, currentCount: number, limit: number }
+ */
+export async function canAutoPublish(): Promise<{
+  allowed: boolean;
+  currentCount: number;
+  limit: number;
+}> {
+  const [currentCount, limit] = await Promise.all([
+    getAutoPublishCountInLastHour(),
+    getAutoPublishRateLimit(),
+  ]);
+
+  return {
+    allowed: currentCount < limit,
+    currentCount,
+    limit,
+  };
 }
